@@ -15,6 +15,7 @@ app.use((req, _res, next) => {
 });
 
 // ── Routes ────────────────────────────────────────────────────────────────────
+app.get('/health', (_req, res) => res.json({ status: 'ok' }));  // public — for uptime pings
 app.use('/api/auth',     require('./routes/auth'));      // public — no JWT needed
 app.use('/api/admin',    require('./routes/admin'));     // superadmin only
 app.use('/api/clients',  require('./routes/clients'));
