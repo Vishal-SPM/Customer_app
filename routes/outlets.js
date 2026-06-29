@@ -69,6 +69,31 @@ router.get('/:id', requirePermission('outlets:view'), async (req, res) => {
   res.json(rows[0]);
 });
 
+// PATCH /api/outlets/:id
+router.patch('/:id', requirePermission('outlets:edit'), async (req, res) => {
+  const { name, vendor_id, terminal_type, terminal_name, gate_type, direction, amenities, requires_boarding_pass } = req.body;
+  const { rows } = await pool.query(`
+    UPDATE outlets SET
+      name                   = COALESCE($1, name),
+      vendor_id              = COALESCE($2, vendor_id),
+      terminal_type          = COALESCE($3, terminal_type),
+      terminal_name          = COALESCE($4, terminal_name),
+      gate_type              = COALESCE($5, gate_type),
+      direction              = COALESCE($6, direction),
+      amenities              = COALESCE($7, amenities),
+      requires_boarding_pass = COALESCE($8, requires_boarding_pass)
+    WHERE id=$9 RETURNING *
+  `, [
+    name || null, vendor_id || null, terminal_type || null, terminal_name || null,
+    gate_type || null, direction || null,
+    amenities !== undefined ? amenities : null,
+    requires_boarding_pass !== undefined ? requires_boarding_pass : null,
+    req.params.id
+  ]);
+  if (!rows.length) return res.status(404).json({ error: 'Outlet not found' });
+  res.json(rows[0]);
+});
+
 // POST /api/outlets/:id/services  — map a service to outlet
 router.post('/:id/services', requirePermission('outlets:edit'), async (req, res) => {
   const { service_id } = req.body;

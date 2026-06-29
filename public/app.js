@@ -170,14 +170,176 @@ function renderList(name, items, renderFn) {
   el.innerHTML = items.length ? items.map(renderFn).join('') : '<p style="color:#94a3b8;font-style:italic;padding:8px 0">No records yet</p>';
 }
 
+/* ── Edit modal ───────────────────────────────────────────────────── */
+let _editState = { type: null, id: null };
+
+const EDIT_CONFIGS = {
+  client: {
+    title: 'Edit Client',
+    api:   id => `/api/clients/${id}`,
+    fields: [
+      { name: 'name',     label: 'Client Name *', type: 'text' },
+      { name: 'logo_url', label: 'Logo URL',       type: 'text' },
+    ]
+  },
+  site: {
+    title: 'Edit Site',
+    api:   id => `/api/sites/${id}`,
+    fields: [
+      { name: 'name',    label: 'Airport Name *', type: 'text' },
+      { name: 'city',    label: 'City',           type: 'text' },
+      { name: 'country', label: 'Country',        type: 'text' },
+    ]
+  },
+  service: {
+    title: 'Edit Service',
+    api:   id => `/api/services/${id}`,
+    fields: [
+      { name: 'name',        label: 'Service Name *', type: 'text' },
+      { name: 'description', label: 'Description',    type: 'text' },
+    ]
+  },
+  outlet: {
+    title: 'Edit Outlet',
+    api:   id => `/api/outlets/${id}`,
+    fields: [
+      { name: 'name',          label: 'Outlet Name *',  type: 'text' },
+      { name: 'vendor_id',     label: 'Vendor',         type: 'vendor-select' },
+      { name: 'terminal_type', label: 'Terminal Type',  type: 'text' },
+      { name: 'terminal_name', label: 'Terminal Name',  type: 'text' },
+      { name: 'gate_type',     label: 'Gate Type',      type: 'text' },
+      { name: 'direction',     label: 'Direction',      type: 'text' },
+      { name: 'amenities',     label: 'Amenities (comma separated)', type: 'text' },
+      { name: 'requires_boarding_pass', label: 'Requires Boarding Pass', type: 'checkbox' },
+    ]
+  },
+  program: {
+    title: 'Edit Program',
+    api:   id => `/api/programs/${id}`,
+    fields: [
+      { name: 'name',              label: 'Program Name *', type: 'text' },
+      { name: 'validity_days',     label: 'Validity (days)', type: 'number' },
+      { name: 'restriction_level', label: 'Restriction Level', type: 'select',
+        options: [
+          { value: 'program', label: 'Program — valid at all program outlets' },
+          { value: 'site',    label: 'Site — valid at all outlets at one airport' },
+          { value: 'outlet',  label: 'Outlet — valid at one specific outlet' },
+        ]
+      },
+    ]
+  },
+  vendor: {
+    title: 'Edit Vendor',
+    api:   id => `/api/vendors/${id}`,
+    fields: [
+      { name: 'name',  label: 'Vendor Name *', type: 'text' },
+      { name: 'email', label: 'Email',         type: 'text' },
+      { name: 'phone', label: 'Phone',         type: 'text' },
+    ]
+  },
+};
+
+window.openEditModal = (type, id, dataJson) => {
+  const data   = JSON.parse(dataJson);
+  const config = EDIT_CONFIGS[type];
+  if (!config) return;
+
+  _editState = { type, id };
+  document.getElementById('edit-modal-title').textContent = config.title;
+
+  const html = config.fields.map(f => {
+    const val = data[f.name];
+    if (f.type === 'checkbox') {
+      return `<div class="field-check" style="margin-bottom:10px">
+        <input type="checkbox" id="ef-${f.name}" name="${f.name}" ${val ? 'checked' : ''}>
+        <label for="ef-${f.name}">${f.label}</label>
+      </div>`;
+    }
+    if (f.type === 'select') {
+      const opts = f.options.map(o =>
+        `<option value="${o.value}" ${val === o.value ? 'selected' : ''}>${o.label}</option>`
+      ).join('');
+      return `<div class="field"><label>${f.label}</label><select id="ef-${f.name}" name="${f.name}">${opts}</select></div>`;
+    }
+    if (f.type === 'vendor-select') {
+      const opts = `<option value="">— no vendor —</option>` +
+        S.vendors.map(v => `<option value="${v.id}" ${val === v.id ? 'selected' : ''}>${esc(v.name)}</option>`).join('');
+      return `<div class="field"><label>${f.label}</label><select id="ef-${f.name}" name="${f.name}">${opts}</select></div>`;
+    }
+    const displayVal = f.name === 'amenities' && Array.isArray(val) ? val.join(', ') : (val || '');
+    return `<div class="field"><label>${f.label}</label>
+      <input id="ef-${f.name}" name="${f.name}" type="${f.type}" value="${esc(String(displayVal))}">
+    </div>`;
+  }).join('');
+
+  document.getElementById('edit-modal-body').innerHTML = html;
+  document.getElementById('edit-modal').classList.remove('hidden');
+};
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.add('hidden');
+  _editState = { type: null, id: null };
+}
+
+async function saveEditModal() {
+  const { type, id } = _editState;
+  const config = EDIT_CONFIGS[type];
+  if (!config) return;
+
+  const payload = {};
+  config.fields.forEach(f => {
+    const el = document.getElementById(`ef-${f.name}`);
+    if (!el) return;
+    if (f.type === 'checkbox') {
+      payload[f.name] = el.checked;
+    } else if (f.name === 'amenities') {
+      payload[f.name] = el.value ? el.value.split(',').map(a => a.trim()).filter(Boolean) : [];
+    } else if (f.type === 'number') {
+      payload[f.name] = el.value ? parseInt(el.value) : undefined;
+    } else {
+      payload[f.name] = el.value || null;
+    }
+  });
+
+  try {
+    await PATCH(config.api(id), payload);
+    toast('Saved successfully');
+    closeEditModal();
+    // Reload the relevant list
+    if (type === 'client')  await loadClients();
+    if (type === 'site')    await loadSites();
+    if (type === 'service') await loadServices();
+    if (type === 'outlet')  await loadOutlets();
+    if (type === 'program') await loadPrograms();
+    if (type === 'vendor')  await loadVendors();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function editBtn(type, id, data) {
+  if (!can(`${type}s:edit`)) return '';
+  const json = esc(JSON.stringify(data));
+  return `<button class="btn-secondary" style="font-size:11px;padding:4px 10px;flex-shrink:0"
+    onclick='openEditModal("${type}","${id}",this.dataset.d)' data-d='${JSON.stringify(data)}'>Edit</button>`;
+}
+
 function renderClient(c) {
-  return `<div class="row-item"><div class="row-main"><div class="row-name">${esc(c.name)}</div><div class="row-sub">${c.id}</div></div></div>`;
+  return `<div class="row-item">
+    <div class="row-main"><div class="row-name">${esc(c.name)}</div><div class="row-sub">${c.id}</div></div>
+    ${editBtn('client', c.id, { name: c.name, logo_url: c.logo_url })}
+  </div>`;
 }
 function renderSite(s) {
-  return `<div class="row-item"><div class="row-main"><div class="row-name">${esc(s.name)} <span class="tag tag-blue">${esc(s.iata_code)}</span></div><div class="row-sub">${esc(s.city||'')} · ${esc(s.country||'')}</div></div></div>`;
+  return `<div class="row-item">
+    <div class="row-main"><div class="row-name">${esc(s.name)} <span class="tag tag-blue">${esc(s.iata_code)}</span></div>
+    <div class="row-sub">${esc(s.city||'')} · ${esc(s.country||'')}</div></div>
+    ${editBtn('site', s.id, { name: s.name, city: s.city, country: s.country })}
+  </div>`;
 }
 function renderService(sv) {
-  return `<div class="row-item"><div class="row-main"><div class="row-name">${esc(sv.name)}</div><div class="row-sub">${esc(sv.description||'')}</div></div></div>`;
+  return `<div class="row-item">
+    <div class="row-main"><div class="row-name">${esc(sv.name)}</div><div class="row-sub">${esc(sv.description||'')}</div></div>
+    ${editBtn('service', sv.id, { name: sv.name, description: sv.description })}
+  </div>`;
 }
 function renderOutlet(o) {
   const svcs = Array.isArray(o.services) ? o.services.filter(Boolean) : [];
@@ -186,6 +348,11 @@ function renderOutlet(o) {
       <div class="row-name">${esc(o.name)} <span class="tag">${esc(o.iata_code||'')}</span>${o.requires_boarding_pass ? '<span class="tag tag-amber">BP req</span>' : ''}</div>
       <div class="row-sub">${esc(o.site_name||'')} · ${esc(o.terminal_name||'')} ${esc(o.direction||'')} ${svcs.length ? '· <em>' + svcs.join(', ') + '</em>' : ''}</div>
     </div>
+    ${editBtn('outlet', o.id, {
+      name: o.name, vendor_id: o.vendor_id, terminal_type: o.terminal_type,
+      terminal_name: o.terminal_name, gate_type: o.gate_type, direction: o.direction,
+      amenities: o.amenities, requires_boarding_pass: o.requires_boarding_pass
+    })}
   </div>`;
 }
 function renderProgram(p) {
@@ -195,6 +362,7 @@ function renderProgram(p) {
       <div class="row-sub">${esc(p.client_name||'')} · ${p.validity_days}d validity</div>
       <div class="api-key-box">${esc(p.api_key)}</div>
     </div>
+    ${editBtn('program', p.id, { name: p.name, validity_days: p.validity_days, restriction_level: p.restriction_level })}
   </div>`;
 }
 function renderVendor(v) {
@@ -207,6 +375,7 @@ function renderVendor(v) {
     </div>
     ${can('vendors:edit') ? `
     <div style="display:flex;gap:6px;flex-shrink:0;flex-direction:column;align-items:flex-end">
+      ${editBtn('vendor', v.id, { name: v.name, email: v.email, phone: v.phone })}
       <button class="btn-secondary" style="font-size:11px;padding:4px 8px;white-space:nowrap" onclick="regenVendorKey('${v.id}','${esc(v.name)}')">Regen Key</button>
       <button class="btn-secondary" style="font-size:11px;padding:4px 8px" onclick="toggleVendorActive('${v.id}',${v.is_active})">${v.is_active ? 'Deactivate' : 'Activate'}</button>
     </div>` : ''}
@@ -702,6 +871,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-logout').addEventListener('click', () => {
     clearToken();
     redirectLogin();
+  });
+
+  // ── Edit modal buttons
+  document.getElementById('edit-modal-close').addEventListener('click',  closeEditModal);
+  document.getElementById('edit-modal-cancel').addEventListener('click', closeEditModal);
+  document.getElementById('edit-modal-save').addEventListener('click',   saveEditModal);
+  document.getElementById('edit-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeEditModal();
   });
 
   // ── Permissions modal buttons
