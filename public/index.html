@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EATs Voucher — Admin Dashboard</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    /* ── Auth / User info ── */
+    .sidebar-footer { padding: 16px; border-top: 1px solid #1e293b; margin-top: auto; }
+    .sidebar-user   { font-size: 12px; color: #94a3b8; margin-bottom: 10px; line-height: 1.5; }
+    .sidebar-user .user-name  { font-weight: 600; color: #e2e8f0; font-size: 13px; }
+    .sidebar-user .user-email { color: #64748b; font-size: 11px; }
+    .btn-logout {
+      width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #334155;
+      background: transparent; color: #94a3b8; font-size: 12px; cursor: pointer;
+      text-align: left;
+    }
+    .btn-logout:hover { background: #1e293b; color: #e2e8f0; }
+
+    /* ── Permissions modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.65);
+      display: flex; align-items: center; justify-content: center; z-index: 9999;
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal {
+      background: #1e293b; border: 1px solid #334155; border-radius: 14px;
+      width: 560px; max-width: calc(100vw - 32px); max-height: 80vh;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 20px; border-bottom: 1px solid #334155;
+    }
+    .modal-title  { font-size: 15px; font-weight: 700; color: #f8fafc; }
+    .modal-close  { background: none; border: none; color: #64748b; font-size: 18px; cursor: pointer; line-height: 1; padding: 2px 6px; }
+    .modal-close:hover { color: #e2e8f0; }
+    .modal-body   { padding: 20px; overflow-y: auto; flex: 1; }
+    .modal-footer { padding: 14px 20px; border-top: 1px solid #334155; display: flex; gap: 10px; justify-content: flex-end; }
+
+    .permissions-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    }
+    .perm-group { margin-bottom: 16px; }
+    .perm-group-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #64748b; margin-bottom: 6px; }
+    .perm-check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #cbd5e1; padding: 4px 0; }
+    .perm-check input[type=checkbox] { accent-color: #6366f1; width: 14px; height: 14px; cursor: pointer; }
+
+    /* ── Reset password inline form ── */
+    .reset-row { display: flex; gap: 8px; margin-top: 6px; }
+    .reset-row input { flex: 1; }
+  </style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" style="display:flex;flex-direction:column;">
+    <div class="brand">
+      <span class="brand-icon">✦</span>
+      <span class="brand-name">EATs Voucher</span>
+    </div>
+
+    <nav style="flex:1">
+      <div class="nav-group" id="nav-setup">
+        <div class="nav-label">Setup</div>
+        <a class="nav-link active" data-section="clients">Clients</a>
+        <a class="nav-link" data-section="sites">Sites &amp; Airports</a>
+        <a class="nav-link" data-section="services">Services</a>
+        <a class="nav-link" data-section="vendors">Vendors</a>
+        <a class="nav-link" data-section="outlets">Outlets</a>
+      </div>
+      <div class="nav-group" id="nav-programs">
+        <div class="nav-label">Programs</div>
+        <a class="nav-link" data-section="programs">Programs</a>
+        <a class="nav-link" data-section="configure">Configure Program</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Operations</div>
+        <a class="nav-link" data-section="voucher">Create Voucher</a>
+        <a class="nav-link" data-section="redemption">Redemption</a>
+      </div>
+      <div class="nav-group" id="nav-reports">
+        <div class="nav-label">Reports</div>
+        <a class="nav-link" data-section="reports-summary">Summary</a>
+        <a class="nav-link" data-section="reports-history">Redemption History</a>
+        <a class="nav-link" data-section="reports-vouchers">Voucher List</a>
+      </div>
+      <div class="nav-group" id="nav-admin" style="display:none">
+        <div class="nav-label">Admin</div>
+        <a class="nav-link" data-section="users">Users</a>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div id="sidebar-user" class="sidebar-user"></div>
+      <button class="btn-logout" id="btn-logout">Sign out</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- TOAST -->
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- ── CLIENTS ─────────────────────────────────────────── -->
+    <section id="section-clients" class="section active">
+      <div class="page-header">
+        <h1>Clients</h1>
+        <p>Billing entity. Each client can have multiple programs.</p>
+      </div>
+      <div class="grid-2">
+        <div class="card" id="card-create-client">
+          <div class="card-title">Create Client</div>
+          <form id="form-client">
+            <div class="field"><label>Client Name *</label><input name="name" placeholder="e.g. HDFC Bank" required></div>
+            <div class="field"><label>Logo URL</label><input name="logo_url" placeholder="https://..."></div>
+            <button type="submit" class="btn-primary">Create Client</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-title">All Clients</div>
+          <div id="list-clients" class="list-body">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── SITES ───────────────────────────────────────────── -->
+    <section id="section-sites" class="section">
+      <div class="page-header">
+        <h1>Sites &amp; Airports</h1>
+        <p>Airport locations identified by IATA code.</p>
+      </div>
+      <div class="grid-2">
+        <div class="card" id="card-create-site">
+          <div class="card-title">Add Site</div>
+          <form id="form-site">
+            <div class="field"><label>Airport Name *</label><input name="name" placeholder="Indira Gandhi International" required></div>
+            <div class="field"><label>IATA Code *</label><input name="iata_code" placeholder="DEL" maxlength="4" required></div>
+            <div class="field"><label>City</label><input name="city" placeholder="New Delhi"></div>
+            <div class="field"><label>Country</label><input name="country" placeholder="India" value="India"></div>
+            <button type="submit" class="btn-primary">Add Site</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-title">All Sites</div>
+          <div id="list-sites" class="list-body">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── SERVICES ────────────────────────────────────────── -->
+    <section id="section-services" class="section">
+      <div class="page-header">
+        <h1>Services</h1>
+        <p>Types of benefit — e.g. Lounge Access, Meet &amp; Greet.</p>
+      </div>
+      <div class="grid-2">
+        <div class="card" id="card-create-service">
+          <div class="card-title">Create Service</div>
+          <form id="form-service">
+            <div class="field"><label>Service Name *</label><input name="name" placeholder="e.g. Lounge Access" required></div>
+            <div class="field"><label>Description</label><input name="description" placeholder="Short description"></div>
+            <button type="submit" class="btn-primary">Create Service</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-title">All Services</div>
+          <div id="list-services" class="list-body">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── OUTLETS ─────────────────────────────────────────── -->
+    <section id="section-outlets" class="section">
+      <div class="page-header">
+        <h1>Outlets</h1>
+        <p>Individual lounges or counters. Each outlet belongs to one site.</p>
+      </div>
+      <div class="grid-2">
+        <div class="card" id="card-create-outlet">
+          <div class="card-title">Create Outlet</div>
+          <form id="form-outlet">
+            <div class="field"><label>Site *</label>
+              <select name="site_id" required><option value="">— select site —</option></select>
+            </div>
+            <div class="field"><label>Vendor</label>
+              <select name="vendor_id"><option value="">— no vendor —</option></select>
+            </div>
+            <div class="field"><label>Outlet Name *</label><input name="name" placeholder="Plaza Premium T3" required></div>
+            <div class="field grid-2-inner">
+              <div><label>Terminal Type</label><input name="terminal_type" placeholder="International"></div>
+              <div><label>Terminal Name</label><input name="terminal_name" placeholder="T3"></div>
+            </div>
+            <div class="field grid-2-inner">
+              <div><label>Gate Type</label><input name="gate_type" placeholder="Post-security"></div>
+              <div><label>Direction</label><input name="direction" placeholder="Departures"></div>
+            </div>
+            <div class="field"><label>Amenities (comma separated)</label><input name="amenities" placeholder="WiFi, Shower, Food, Bar"></div>
+            <div class="field-check">
+              <input type="checkbox" name="requires_boarding_pass" id="chk-bp">
+              <label for="chk-bp">Requires boarding pass (egate lounge)</label>
+            </div>
+            <div class="field"><label>Map Services</label>
+              <div id="outlet-service-checks" class="check-group">No services yet — add from Services tab</div>
+            </div>
+            <button type="submit" class="btn-primary">Create Outlet</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-title">All Outlets</div>
+          <div id="list-outlets" class="list-body">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── PROGRAMS ────────────────────────────────────────── -->
+    <section id="section-programs" class="section">
+      <div class="page-header">
+        <h1>Programs</h1>
+        <p>Each program is scoped to a client and has an isolated API key.</p>
+      </div>
+      <div class="grid-2">
+        <div class="card" id="card-create-program">
+          <div class="card-title">Create Program</div>
+          <form id="form-program">
+            <div class="field"><label>Client *</label>
+              <select name="client_id" required><option value="">— select client —</option></select>
+            </div>
+            <div class="field"><label>Program Name *</label><input name="name" placeholder="HDFC Infinia Lounge Access" required></div>
+            <div class="field grid-2-inner">
+              <div><label>Code Prefix *</label><input name="code_prefix" placeholder="HDFC" maxlength="8" required></div>
+              <div><label>Validity (days)</label><input name="validity_days" type="number" value="30" min="1"></div>
+            </div>
+            <div class="field">
+              <label>Restriction Level</label>
+              <select name="restriction_level">
+                <option value="program">Program — valid at all program outlets</option>
+                <option value="site">Site — valid at all outlets at one airport</option>
+                <option value="outlet">Outlet — valid at one specific outlet</option>
+              </select>
+            </div>
+            <button type="submit" class="btn-primary">Create Program</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-title">All Programs</div>
+          <div id="list-programs" class="list-body">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── CONFIGURE ───────────────────────────────────────── -->
+    <section id="section-configure" class="section">
+      <div class="page-header">
+        <h1>Configure Program</h1>
+        <p>Map outlets with pricing, assign services, and set restriction level.</p>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">Select Program</div>
+        <div class="field" style="max-width:380px">
+          <select id="cfg-program-select"><option value="">— select program —</option></select>
+        </div>
+        <div id="cfg-program-info" class="prog-info hidden"></div>
+      </div>
+
+      <div id="cfg-body" class="hidden">
+        <div class="grid-2">
+
+          <!-- Outlets & Pricing -->
+          <div class="card">
+            <div class="card-title">Mapped Outlets &amp; Pricing</div>
+            <div id="cfg-outlets-list" class="list-body"></div>
+            <div class="divider"></div>
+            <div class="card-title" style="margin-top:8px">Add Outlet</div>
+            <form id="form-cfg-outlet">
+              <div class="field">
+                <select name="outlet_id"><option value="">— select outlet —</option></select>
+              </div>
+              <div class="field">
+                <input name="price" type="number" placeholder="Price (₹)" min="0" step="0.01">
+              </div>
+              <button type="submit" class="btn-primary">Map Outlet</button>
+            </form>
+          </div>
+
+          <!-- Services & Restriction -->
+          <div>
+            <div class="card" style="margin-bottom:16px">
+              <div class="card-title">Mapped Services</div>
+              <div id="cfg-services-list" class="list-body"></div>
+              <div class="divider"></div>
+              <form id="form-cfg-service">
+                <div class="field">
+                  <select name="service_id"><option value="">— select service —</option></select>
+                </div>
+                <button type="submit" class="btn-primary">Map Service</button>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-title">Restriction Level</div>
+              <p class="sub-text">Controls how vouchers created under this program are scoped.</p>
+              <form id="form-cfg-restriction">
+                <div class="field">
+                  <select name="restriction_level" id="cfg-restriction-select">
+                    <option value="program">Program — valid at all program outlets</option>
+                    <option value="site">Site — valid at all outlets at one airport</option>
+                    <option value="outlet">Outlet — valid at one specific outlet</option>
+                  </select>
+                </div>
+                <button type="submit" class="btn-primary">Update Restriction Level</button>
+              </form>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ── CREATE VOUCHER ──────────────────────────────────── -->
+    <section id="section-voucher" class="section">
+      <div class="page-header">
+        <h1>Create Voucher</h1>
+        <p>Fields shown depend on the program's restriction level.</p>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <form id="form-voucher">
+            <div class="field">
+              <label>Program *</label>
+              <select name="program_id" id="vch-program" required><option value="">— select program —</option></select>
+            </div>
+            <div id="vch-restriction-badge" class="hidden"></div>
+            <div class="field">
+              <label>Service *</label>
+              <select name="service_id" id="vch-service" required disabled><option value="">— select program first —</option></select>
+            </div>
+            <div class="field"><label>Passenger Name *</label><input name="passenger_name" placeholder="Full name" required></div>
+            <div class="field grid-2-inner">
+              <div><label>Start Date *</label><input name="start_date" type="date" required></div>
+              <div><label>Pax Count</label><input name="pax_count" type="number" value="1" min="1"></div>
+            </div>
+
+            <!-- Site selector (shown for site + outlet restriction) -->
+            <div id="vch-site-row" class="field hidden">
+              <label>Airport *</label>
+              <div style="display:flex;gap:8px">
+                <select id="vch-site" name="site_id" style="flex:1"><option value="">— fetch locations first —</option></select>
+                <button type="button" id="btn-fetch-locations" class="btn-secondary">Fetch</button>
+              </div>
+            </div>
+
+            <!-- Outlet selector (shown for outlet restriction only) -->
+            <div id="vch-outlet-row" class="field hidden">
+              <label>Outlet *</label>
+              <div style="display:flex;gap:8px">
+                <select id="vch-outlet" name="outlet_id" style="flex:1"><option value="">— fetch outlets first —</option></select>
+                <button type="button" id="btn-fetch-outlets" class="btn-secondary">Fetch</button>
+              </div>
+            </div>
+
+            <button type="submit" class="btn-primary" style="margin-top:8px">Create Voucher</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Voucher Result</div>
+          <div id="vch-result" class="result-placeholder">Created voucher details will appear here.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── REDEMPTION ──────────────────────────────────────── -->
+    <section id="section-redemption" class="section">
+      <div class="page-header">
+        <h1>Redemption</h1>
+        <p>Two-step flow: validate first to get a temp auth ID, then redeem.</p>
+      </div>
+
+      <!-- Vendor selector -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">Acting Vendor</div>
+        <p class="sub-text" style="margin-bottom:10px">Select the vendor POS performing this redemption. Their API key is sent automatically.</p>
+        <div class="field" style="max-width:360px;margin-bottom:0">
+          <select id="rdm-vendor-select"><option value="">— select vendor —</option></select>
+        </div>
+      </div>
+
+      <div class="grid-2">
+
+        <!-- Step 1 -->
+        <div class="card">
+          <div class="step-badge">Step 1</div>
+          <div class="card-title">Validate Voucher</div>
+          <p class="sub-text">Operator scans QR or types the code. Returns benefit info and a temp auth ID (valid 10 min).</p>
+          <form id="form-validate">
+            <div class="field"><label>Voucher Code *</label><input name="voucher_code" placeholder="HDFC-A3K9MP2X" required></div>
+            <button type="submit" class="btn-primary">Validate</button>
+          </form>
+          <div id="validate-result" class="result-placeholder" style="margin-top:16px">Validation result will appear here.</div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="card">
+          <div class="step-badge">Step 2</div>
+          <div class="card-title">Redeem Benefit</div>
+          <p class="sub-text">Use the temp auth ID from Step 1. Marks the voucher as redeemed.</p>
+          <form id="form-redeem">
+            <div class="field"><label>Temp Auth ID *</label><input name="temp_auth_id" id="inp-temp-auth" placeholder="Auto-filled after validate" required></div>
+            <div class="field"><label>Outlet (optional)</label>
+              <select name="outlet_id" id="rdm-outlet-select"><option value="">— no specific outlet —</option></select>
+            </div>
+            <div class="field"><label>Pax Count</label><input name="pax_count" type="number" value="1" min="1"></div>
+            <button type="submit" class="btn-primary">Redeem</button>
+          </form>
+          <div id="redeem-result" class="result-placeholder" style="margin-top:16px">Redemption result will appear here.</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── VENDORS ───────────────────────────────────────────── -->
+    <section id="section-vendors" class="section">
+      <div class="page-header">
+        <h1>Vendors</h1>
+        <p>Outlet operators who redeem vouchers. Each vendor gets a unique API key for the redemption POS.</p>
+      </div>
+      <div class="grid-2">
+        <div class="card" id="card-create-vendor">
+          <div class="card-title">Create Vendor</div>
+          <form id="form-vendor">
+            <div class="field"><label>Vendor Name *</label><input name="name" placeholder="Plaza Premium Lounges" required></div>
+            <div class="field"><label>Contact Email</label><input name="email" type="email" placeholder="ops@plazapremium.com"></div>
+            <div class="field"><label>Phone</label><input name="phone" placeholder="+91 98765 43210"></div>
+            <button type="submit" class="btn-primary">Create Vendor</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-title">All Vendors</div>
+          <div id="list-vendors" class="list-body">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── REPORTS: SUMMARY ───────────────────────────────── -->
+    <section id="section-reports-summary" class="section">
+      <div class="page-header">
+        <h1>Voucher Summary</h1>
+        <p>Aggregate stats across all programs. Filter by program and date range.</p>
+      </div>
+
+      <!-- Filters -->
+      <div class="card" style="margin-bottom:20px">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+          <div class="field" style="margin:0;min-width:200px">
+            <label style="font-size:11px">Program</label>
+            <select id="rpt-sum-program"><option value="">All Programs</option></select>
+          </div>
+          <div class="field" style="margin:0">
+            <label style="font-size:11px">From Date</label>
+            <input type="date" id="rpt-sum-from">
+          </div>
+          <div class="field" style="margin:0">
+            <label style="font-size:11px">To Date</label>
+            <input type="date" id="rpt-sum-to">
+          </div>
+          <button class="btn-primary" id="btn-rpt-sum-load">Apply</button>
+        </div>
+      </div>
+
+      <!-- Headline cards -->
+      <div id="rpt-summary-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;margin-bottom:24px"></div>
+
+      <!-- Per-program breakdown -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">By Program</div>
+        <div id="rpt-by-program" class="list-body"></div>
+      </div>
+
+      <!-- Per-vendor breakdown -->
+      <div class="card">
+        <div class="card-title">By Vendor</div>
+        <div id="rpt-by-vendor" class="list-body"></div>
+      </div>
+    </section>
+
+    <!-- ── REPORTS: REDEMPTION HISTORY ────────────────────── -->
+    <section id="section-reports-history" class="section">
+      <div class="page-header">
+        <h1>Redemption History</h1>
+        <p>Every redemption event with full context. Filterable by vendor, outlet, program and date.</p>
+      </div>
+
+      <!-- Filters -->
+      <div class="card" style="margin-bottom:20px">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+          <div class="field" style="margin:0;min-width:180px">
+            <label style="font-size:11px">Program</label>
+            <select id="rpt-hist-program"><option value="">All Programs</option></select>
+          </div>
+          <div class="field" style="margin:0;min-width:160px">
+            <label style="font-size:11px">Vendor</label>
+            <select id="rpt-hist-vendor"><option value="">All Vendors</option></select>
+          </div>
+          <div class="field" style="margin:0">
+            <label style="font-size:11px">From Date</label>
+            <input type="date" id="rpt-hist-from">
+          </div>
+          <div class="field" style="margin:0">
+            <label style="font-size:11px">To Date</label>
+            <input type="date" id="rpt-hist-to">
+          </div>
+          <button class="btn-primary" id="btn-rpt-hist-load">Apply</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div id="rpt-hist-count" style="font-size:12px;color:#64748b;margin-bottom:12px"></div>
+        <div id="rpt-history-table" class="list-body"></div>
+      </div>
+    </section>
+
+    <!-- ── REPORTS: VOUCHER LIST ──────────────────────────── -->
+    <section id="section-reports-vouchers" class="section">
+      <div class="page-header">
+        <h1>Voucher List</h1>
+        <p>All issued vouchers with current status. Filter by program, status and date.</p>
+      </div>
+
+      <!-- Filters -->
+      <div class="card" style="margin-bottom:20px">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+          <div class="field" style="margin:0;min-width:180px">
+            <label style="font-size:11px">Program</label>
+            <select id="rpt-vch-program"><option value="">All Programs</option></select>
+          </div>
+          <div class="field" style="margin:0;min-width:130px">
+            <label style="font-size:11px">Status</label>
+            <select id="rpt-vch-status">
+              <option value="">All</option>
+              <option value="active">Active</option>
+              <option value="redeemed">Redeemed</option>
+              <option value="voided">Voided</option>
+            </select>
+          </div>
+          <div class="field" style="margin:0">
+            <label style="font-size:11px">From Date</label>
+            <input type="date" id="rpt-vch-from">
+          </div>
+          <div class="field" style="margin:0">
+            <label style="font-size:11px">To Date</label>
+            <input type="date" id="rpt-vch-to">
+          </div>
+          <button class="btn-primary" id="btn-rpt-vch-load">Apply</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div id="rpt-vch-count" style="font-size:12px;color:#64748b;margin-bottom:12px"></div>
+        <div id="rpt-voucher-table" class="list-body"></div>
+      </div>
+    </section>
+
+    <!-- ── USERS ───────────────────────────────────────────── -->
+    <section id="section-users" class="section">
+      <div class="page-header">
+        <h1>Users</h1>
+        <p>Internal and external user accounts. Only superadmin can manage users.</p>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Create User</div>
+          <form id="form-user">
+            <div class="field"><label>Full Name *</label><input name="name" placeholder="John Doe" required></div>
+            <div class="field"><label>Email *</label><input name="email" type="email" placeholder="john@eats.com" required></div>
+            <div class="field"><label>Password *</label><input name="password" type="password" placeholder="Min 8 characters" required></div>
+
+            <div class="field">
+              <label>User Type *</label>
+              <select name="user_type" id="user-type-select">
+                <option value="internal">Internal (staff — route-level permissions)</option>
+                <option value="external">External (partner — program-scoped access)</option>
+              </select>
+            </div>
+
+            <!-- Internal only: all programs toggle -->
+            <div class="field-check" id="user-all-programs-row">
+              <input type="checkbox" id="chk-all-programs" checked>
+              <label for="chk-all-programs">Access to all programs</label>
+            </div>
+
+            <!-- Program checklist — shown when restricted or external -->
+            <div class="field" id="user-programs-row" style="display:none">
+              <label id="user-programs-label">Assign Programs *</label>
+              <div id="user-program-checks" class="check-group" style="margin-top:6px;max-height:160px;overflow-y:auto">
+                No programs yet
+              </div>
+            </div>
+
+            <button type="submit" class="btn-primary" style="margin-top:8px">Create User</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-title">All Users</div>
+          <div id="list-users" class="list-body">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ── Program Access Modal ──────────────────────────────────────── -->
+<div id="programs-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Program Access — <span id="prog-modal-user-name"></span></div>
+      <button class="modal-close" id="prog-modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-check" id="prog-modal-all-row" style="margin-bottom:14px">
+        <input type="checkbox" id="prog-modal-all-check">
+        <label for="prog-modal-all-check">Access to all programs</label>
+      </div>
+      <div id="prog-modal-select-row">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748b;margin-bottom:8px">Select Programs</div>
+        <div id="prog-modal-checks" class="check-group" style="max-height:260px;overflow-y:auto"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" id="prog-modal-cancel">Cancel</button>
+      <button class="btn-primary" id="prog-modal-save">Save Access</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Permissions Modal ─────────────────────────────────────────── -->
+<div id="permissions-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Edit Permissions — <span id="modal-user-name"></span></div>
+      <button class="modal-close" id="modal-close-btn">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="permissions-checklist"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" id="modal-cancel-btn">Cancel</button>
+      <button class="btn-primary" id="modal-save-btn">Save Permissions</button>
+    </div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
