@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const pool    = require('../db/pool');
 const { v4: uuid } = require('uuid');
+const { notify } = require('../utils/notify');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -102,7 +103,7 @@ router.post('/outlets', requireApiKey, async (req, res) => {
 // ── POST /api/voucher/create ──────────────────────────────────────────────────
 // Request body: { program_id, service_id, passenger_name, pax_count, start_date, outlet_id? }
 router.post('/create', requireApiKey, async (req, res) => {
-  const { program_id, service_id, passenger_name, pax_count, start_date, outlet_id, site_id } = req.body;
+  const { program_id, service_id, passenger_name, passenger_email, passenger_phone, pax_count, start_date, outlet_id, site_id } = req.body;
   const program = req.program;
 
   if (!program_id)               return res.status(400).json({ error: 'program_id is required' });
@@ -132,12 +133,22 @@ router.post('/create', requireApiKey, async (req, res) => {
   const expiry_date = addDays(start_date, program.validity_days);
 
   const { rows } = await pool.query(`
-    INSERT INTO vouchers (id, program_id, service_id, outlet_id, site_id, code, passenger_name, pax_count, start_date, expiry_date)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *
+    INSERT INTO vouchers (id, program_id, service_id, outlet_id, site_id, code, passenger_name, passenger_email, passenger_phone, pax_count, start_date, expiry_date)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *
   `, [uuid(), program.id, service_id, outlet_id || null, site_id || null,
-      code, passenger_name, pax_count || 1, start_date, expiry_date]);
+      code, passenger_name, passenger_email || null, passenger_phone || null,
+      pax_count || 1, start_date, expiry_date]);
 
   const voucher = rows[0];
+
+  // Fire notification (non-blocking)
+  pool.query('SELECT name FROM services WHERE id=$1', [service_id]).then(({ rows: sr }) => {
+    notify(voucher.id, 'voucher_created', {
+      ...voucher,
+      service_name: sr[0]?.name || '',
+      program_name: program.name
+    });
+  }).catch(() => {});
 
   // Resolve which outlets this voucher is valid at
   let outletQuery, outletParams;
@@ -255,6 +266,23 @@ router.post('/redeem', requireVendorKey, async (req, res) => {
       [uuid(), auth.voucher_id, temp_auth_id, pax_count || 1, outlet_id || null, req.vendor.id]
     );
     await client.query('COMMIT');
+
+    // Fire notification (non-blocking)
+    pool.query(`
+      SELECT v.*, o.name AS outlet_name
+      FROM vouchers v
+      LEFT JOIN outlets o ON o.id = $2
+      WHERE v.id = $1
+    `, [auth.voucher_id, outlet_id || null]).then(({ rows: vr }) => {
+      if (vr[0]) {
+        notify(auth.voucher_id, 'voucher_redeemed', {
+          ...vr[0],
+          outlet_name: vr[0].outlet_name || null,
+          vendor_name: req.vendor.name
+        });
+      }
+    }).catch(() => {});
+
     res.json({ success: true, message: 'Voucher redeemed successfully', redeemed_at: new Date().toISOString(), vendor: req.vendor.name });
   } catch (err) {
     await client.query('ROLLBACK');

@@ -70,7 +70,8 @@ async function onSectionEnter(name) {
   if (name === 'users')            { await Promise.all([loadUsers(), loadPrograms()]); renderProgramChecks('user-program-checks'); }
   if (name === 'reports-summary')  { populateReportFilters(); await loadReportSummary(); }
   if (name === 'reports-history')  { populateReportFilters(); await loadReportHistory(); }
-  if (name === 'reports-vouchers') { populateReportFilters(); await loadReportVouchers(); }
+  if (name === 'reports-vouchers')      { populateReportFilters(); await loadReportVouchers(); }
+  if (name === 'reports-notifications') { await loadReportNotifications(); }
 }
 
 /* ── Permission gating ────────────────────────────────────────────── */
@@ -667,6 +668,51 @@ async function loadReportVouchers() {
     : '<p style="color:#94a3b8;font-style:italic;padding:8px 0">No vouchers found for the selected filters</p>';
 }
 
+/* ── Notification Log report ─────────────────────────────────────── */
+async function loadReportNotifications() {
+  const channel = document.getElementById('rpt-notif-channel')?.value || '';
+  const status  = document.getElementById('rpt-notif-status')?.value  || '';
+  const type    = document.getElementById('rpt-notif-type')?.value    || '';
+
+  let url = '/api/reports/notifications?limit=200';
+  if (channel) url += `&channel=${encodeURIComponent(channel)}`;
+  if (status)  url += `&status=${encodeURIComponent(status)}`;
+  if (type)    url += `&type=${encodeURIComponent(type)}`;
+
+  const data = await GET(url);
+  if (!data) return;
+
+  document.getElementById('rpt-notif-count').textContent = `${data.total} notification(s)`;
+
+  const statusColor = { sent: '#22c55e', failed: '#ef4444', skipped: '#94a3b8', pending: '#f59e0b' };
+  const channelIcon = { email: '✉️', sms: '📱' };
+  document.getElementById('rpt-notif-table').innerHTML = data.rows.length
+    ? `<table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="border-bottom:1px solid #334155;color:#64748b;text-align:left">
+          <th style="padding:6px 8px">Type</th>
+          <th style="padding:6px 8px">Channel</th>
+          <th style="padding:6px 8px">Recipient</th>
+          <th style="padding:6px 8px">Voucher</th>
+          <th style="padding:6px 8px">Status</th>
+          <th style="padding:6px 8px">Error</th>
+          <th style="padding:6px 8px">Sent At</th>
+        </tr></thead>
+        <tbody>${data.rows.map(n => {
+          const col = statusColor[n.status] || '#94a3b8';
+          return `<tr style="border-bottom:1px solid #1e293b">
+            <td style="padding:6px 8px">${esc(n.type.replace(/_/g,' '))}</td>
+            <td style="padding:6px 8px">${channelIcon[n.channel] || ''} ${esc(n.channel)}</td>
+            <td style="padding:6px 8px;font-family:monospace;font-size:11px">${esc(n.recipient)}</td>
+            <td style="padding:6px 8px;font-family:monospace;font-size:11px">${esc(n.code||'—')}</td>
+            <td style="padding:6px 8px;font-weight:600;color:${col}">${esc(n.status)}</td>
+            <td style="padding:6px 8px;color:#ef4444;font-size:11px">${esc(n.error||'')}</td>
+            <td style="padding:6px 8px;color:#64748b;white-space:nowrap">${new Date(n.sent_at).toLocaleString()}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`
+    : '<p style="color:#94a3b8;font-style:italic;padding:8px 0">No notifications found</p>';
+}
+
 /* ── Voucher section ─────────────────────────────────────────────── */
 function applyVoucherRestriction(program) {
   const badge    = document.getElementById('vch-restriction-badge');
@@ -1041,13 +1087,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const siteId  = siteSel.value || undefined;
 
     const payload = {
-      program_id:     fd.program_id,
-      service_id:     fd.service_id,
-      passenger_name: fd.passenger_name,
-      pax_count:      parseInt(fd.pax_count) || 1,
-      start_date:     fd.start_date,
-      outlet_id:      fd.outlet_id || undefined,
-      site_id:        siteId
+      program_id:      fd.program_id,
+      service_id:      fd.service_id,
+      passenger_name:  fd.passenger_name,
+      passenger_email: fd.passenger_email || undefined,
+      passenger_phone: fd.passenger_phone || undefined,
+      pax_count:       parseInt(fd.pax_count) || 1,
+      start_date:      fd.start_date,
+      outlet_id:       fd.outlet_id || undefined,
+      site_id:         siteId
     };
 
     try {
@@ -1163,7 +1211,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ── Report filter apply buttons
   document.getElementById('btn-rpt-sum-load')?.addEventListener('click',  loadReportSummary);
   document.getElementById('btn-rpt-hist-load')?.addEventListener('click', loadReportHistory);
-  document.getElementById('btn-rpt-vch-load')?.addEventListener('click',  loadReportVouchers);
+  document.getElementById('btn-rpt-vch-load')?.addEventListener('click',   loadReportVouchers);
+  document.getElementById('btn-rpt-notif-load')?.addEventListener('click', loadReportNotifications);
 
   // Set today's date as default for voucher start date
   const startDateInput = document.querySelector('#form-voucher [name=start_date]');

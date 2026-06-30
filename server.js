@@ -25,7 +25,8 @@ app.use('/api/outlets',  require('./routes/outlets'));
 app.use('/api/programs', require('./routes/programs'));
 app.use('/api/vendors',  require('./routes/vendors'));
 app.use('/api/reports',  require('./routes/reports'));
-app.use('/api/voucher',  require('./routes/vouchers'));
+app.use('/api/voucher',   require('./routes/vouchers'));
+app.use('/api/internal', require('./routes/internal'));
 app.get('/v/:code',      require('./views/voucherView'));
 
 // Serve dashboard for any unmatched GET

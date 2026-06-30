@@ -140,6 +140,20 @@ async function createSchema() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS user_type    TEXT    NOT NULL DEFAULT 'internal';
       ALTER TABLE users ADD COLUMN IF NOT EXISTS all_programs BOOLEAN NOT NULL DEFAULT TRUE;
 
+      ALTER TABLE vouchers ADD COLUMN IF NOT EXISTS passenger_email TEXT;
+      ALTER TABLE vouchers ADD COLUMN IF NOT EXISTS passenger_phone TEXT;
+
+      CREATE TABLE IF NOT EXISTS notifications_log (
+        id         TEXT PRIMARY KEY,
+        voucher_id TEXT REFERENCES vouchers(id) ON DELETE SET NULL,
+        type       TEXT NOT NULL,
+        channel    TEXT NOT NULL,
+        recipient  TEXT NOT NULL,
+        status     TEXT NOT NULL DEFAULT 'pending',
+        error      TEXT,
+        sent_at    TIMESTAMPTZ DEFAULT NOW()
+      );
+
       CREATE TABLE IF NOT EXISTS user_programs (
         user_id    TEXT NOT NULL REFERENCES users(id)    ON DELETE CASCADE,
         program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE,

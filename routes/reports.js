@@ -176,4 +176,39 @@ router.get('/voucher-summary', requirePermission('reports:view'), async (req, re
   res.json({ total: countRows[0].total, limit: parseInt(limit), offset: parseInt(offset), rows });
 });
 
+// ── GET /api/reports/notifications ───────────────────────────────────────────
+// Notification log with optional channel / status / type filters
+router.get('/notifications', requirePermission('reports:view'), async (req, res) => {
+  const { channel, status, type, limit = 200, offset = 0 } = req.query;
+
+  const filters = [];
+  const params  = [];
+
+  if (channel) { params.push(channel); filters.push(`nl.channel = $${params.length}`); }
+  if (status)  { params.push(status);  filters.push(`nl.status  = $${params.length}`); }
+  if (type)    { params.push(type);    filters.push(`nl.type    = $${params.length}`); }
+
+  const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+
+  params.push(parseInt(limit));
+  params.push(parseInt(offset));
+
+  const { rows } = await pool.query(`
+    SELECT nl.id, nl.type, nl.channel, nl.recipient, nl.status, nl.error, nl.sent_at,
+           v.code
+    FROM notifications_log nl
+    LEFT JOIN vouchers v ON v.id = nl.voucher_id
+    ${where}
+    ORDER BY nl.sent_at DESC
+    LIMIT $${params.length - 1} OFFSET $${params.length}
+  `, params);
+
+  const countParams = params.slice(0, params.length - 2);
+  const { rows: countRows } = await pool.query(
+    `SELECT COUNT(*) AS total FROM notifications_log nl ${where}`, countParams
+  );
+
+  res.json({ total: parseInt(countRows[0].total), rows });
+});
+
 module.exports = router;

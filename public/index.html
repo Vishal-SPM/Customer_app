@@ -87,6 +87,7 @@
         <a class="nav-link" data-section="reports-summary">Summary</a>
         <a class="nav-link" data-section="reports-history">Redemption History</a>
         <a class="nav-link" data-section="reports-vouchers">Voucher List</a>
+        <a class="nav-link" data-section="reports-notifications">Notification Log</a>
       </div>
       <div class="nav-group" id="nav-admin" style="display:none">
         <div class="nav-label">Admin</div>
@@ -342,6 +343,10 @@
             </div>
             <div class="field"><label>Passenger Name *</label><input name="passenger_name" placeholder="Full name" required></div>
             <div class="field grid-2-inner">
+              <div><label>Email</label><input name="passenger_email" type="email" placeholder="passenger@email.com"></div>
+              <div><label>Phone</label><input name="passenger_phone" placeholder="919876543210"></div>
+            </div>
+            <div class="field grid-2-inner">
               <div><label>Start Date *</label><input name="start_date" type="date" required></div>
               <div><label>Pax Count</label><input name="pax_count" type="number" value="1" min="1"></div>
             </div>
@@ -563,6 +568,49 @@
       <div class="card">
         <div id="rpt-vch-count" style="font-size:12px;color:#64748b;margin-bottom:12px"></div>
         <div id="rpt-voucher-table" class="list-body"></div>
+      </div>
+    </section>
+
+    <!-- ── REPORTS: NOTIFICATION LOG ─────────────────────── -->
+    <section id="section-reports-notifications" class="section">
+      <div class="page-header">
+        <h1>Notification Log</h1>
+        <p>Every email and SMS notification sent by the system.</p>
+      </div>
+      <div class="card" style="margin-bottom:20px">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+          <div class="field" style="margin:0;min-width:150px">
+            <label style="font-size:11px">Channel</label>
+            <select id="rpt-notif-channel">
+              <option value="">All</option>
+              <option value="email">Email</option>
+              <option value="sms">SMS</option>
+            </select>
+          </div>
+          <div class="field" style="margin:0;min-width:150px">
+            <label style="font-size:11px">Status</label>
+            <select id="rpt-notif-status">
+              <option value="">All</option>
+              <option value="sent">Sent</option>
+              <option value="failed">Failed</option>
+              <option value="skipped">Skipped</option>
+            </select>
+          </div>
+          <div class="field" style="margin:0">
+            <label style="font-size:11px">Type</label>
+            <select id="rpt-notif-type">
+              <option value="">All</option>
+              <option value="voucher_created">Voucher Created</option>
+              <option value="voucher_redeemed">Voucher Redeemed</option>
+              <option value="expiry_reminder">Expiry Reminder</option>
+            </select>
+          </div>
+          <button class="btn-primary" id="btn-rpt-notif-load">Apply</button>
+        </div>
+      </div>
+      <div class="card">
+        <div id="rpt-notif-count" style="font-size:12px;color:#64748b;margin-bottom:12px"></div>
+        <div id="rpt-notif-table" class="list-body"></div>
       </div>
     </section>
 
