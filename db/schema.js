@@ -191,6 +191,14 @@ async function createSchema() {
       ALTER TABLE program_services ADD COLUMN IF NOT EXISTS unit_price     NUMERIC(10,2) NOT NULL DEFAULT 0;
       ALTER TABLE program_services ADD COLUMN IF NOT EXISTS discount_value NUMERIC(10,2);
 
+      -- Service type: qr | booking | discount_voucher
+      ALTER TABLE services ADD COLUMN IF NOT EXISTS service_type TEXT NOT NULL DEFAULT 'qr';
+
+      -- Seed existing services to correct types
+      UPDATE services SET service_type = 'booking'
+        WHERE service_type = 'qr'
+          AND (LOWER(name) LIKE '%meet%' OR LOWER(name) LIKE '%greet%' OR LOWER(name) LIKE '%assist%');
+
       -- Redemption billing fields (discount model)
       ALTER TABLE redemptions ADD COLUMN IF NOT EXISTS actual_bill_amount NUMERIC(10,2);
       ALTER TABLE redemptions ADD COLUMN IF NOT EXISTS discounted_amount  NUMERIC(10,2);

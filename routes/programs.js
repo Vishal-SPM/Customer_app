@@ -74,26 +74,30 @@ router.patch('/:id', requirePermission('programs:edit'), async (req, res) => {
 
 // POST /api/programs/:id/services
 router.post('/:id/services', requirePermission('programs:edit'), async (req, res) => {
-  const { service_id, billing_model, unit_price, discount_value } = req.body;
+  const { service_id, discount_value } = req.body;
   if (!service_id) return res.status(400).json({ error: 'service_id is required' });
 
-  const model = billing_model || 'issuance';
-  if (!['issuance', 'redemption', 'discount'].includes(model)) {
-    return res.status(400).json({ error: 'billing_model must be issuance, redemption, or discount' });
-  }
-  if (model === 'discount' && (discount_value === undefined || discount_value === null)) {
-    return res.status(400).json({ error: 'discount_value is required for discount billing model' });
+  // Look up service type to auto-derive billing_model
+  const { rows: svcRows } = await pool.query('SELECT service_type FROM services WHERE id=$1', [service_id]);
+  if (!svcRows.length) return res.status(404).json({ error: 'Service not found' });
+  const stype = svcRows[0].service_type;
+
+  const svcTypeToModel = { qr: 'redemption', booking: 'issuance', discount_voucher: 'discount' };
+  const billing_model = svcTypeToModel[stype] || 'issuance';
+
+  if (stype === 'discount_voucher' && (discount_value === undefined || discount_value === null)) {
+    return res.status(400).json({ error: 'discount_value is required for Discount Voucher services' });
   }
 
   await pool.query(`
     INSERT INTO program_services (program_id, service_id, billing_model, unit_price, discount_value)
-    VALUES ($1,$2,$3,$4,$5)
+    VALUES ($1,$2,$3,0,$4)
     ON CONFLICT (program_id, service_id) DO UPDATE
       SET billing_model  = EXCLUDED.billing_model,
-          unit_price     = EXCLUDED.unit_price,
+          unit_price     = 0,
           discount_value = EXCLUDED.discount_value
-  `, [req.params.id, service_id, model, parseFloat(unit_price) || 0,
-      model === 'discount' ? parseFloat(discount_value) : null]);
+  `, [req.params.id, service_id, billing_model,
+      stype === 'discount_voucher' ? parseFloat(discount_value) : null]);
 
   res.status(201).json({ message: 'Service mapped to program' });
 });
@@ -101,7 +105,8 @@ router.post('/:id/services', requirePermission('programs:edit'), async (req, res
 // GET /api/programs/:id/services
 router.get('/:id/services', requirePermission('programs:view'), async (req, res) => {
   const { rows } = await pool.query(`
-    SELECT sv.*, ps.billing_model, ps.unit_price, ps.discount_value
+    SELECT sv.id, sv.name, sv.description, sv.service_type,
+           ps.billing_model, ps.discount_value
     FROM services sv
     JOIN program_services ps ON ps.service_id = sv.id AND ps.program_id = $1
     WHERE ps.program_id = $1 ORDER BY sv.name

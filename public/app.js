@@ -212,8 +212,15 @@ const EDIT_CONFIGS = {
     title: 'Edit Service',
     api:   id => `/api/services/${id}`,
     fields: [
-      { name: 'name',        label: 'Service Name *', type: 'text' },
-      { name: 'description', label: 'Description',    type: 'text' },
+      { name: 'name',         label: 'Service Name *', type: 'text' },
+      { name: 'service_type', label: 'Service Type',   type: 'select',
+        options: [
+          { value: 'qr',               label: 'QR-based (e.g. Lounge)' },
+          { value: 'booking',          label: 'Booking-based (e.g. Meet & Assist)' },
+          { value: 'discount_voucher', label: 'Discount Voucher' },
+        ]
+      },
+      { name: 'description',  label: 'Description',    type: 'text' },
     ]
   },
   outlet: {
@@ -372,9 +379,21 @@ function renderSite(s) {
   </div>`;
 }
 function renderService(sv) {
+  const typeMeta = {
+    qr:               { color: '#0369a1', bg: '#e0f2fe', label: 'QR' },
+    booking:          { color: '#6d28d9', bg: '#ede9fe', label: 'Booking' },
+    discount_voucher: { color: '#b45309', bg: '#fef3c7', label: 'Discount' },
+  };
+  const m = typeMeta[sv.service_type] || { color: '#475569', bg: '#f1f5f9', label: sv.service_type || '—' };
   return `<div class="row-item">
-    <div class="row-main"><div class="row-name">${esc(sv.name)}</div><div class="row-sub">${esc(sv.description||'')}</div></div>
-    ${editBtn('service', sv.id, { name: sv.name, description: sv.description })}
+    <div class="row-main">
+      <div class="row-name" style="display:flex;align-items:center;gap:8px">
+        ${esc(sv.name)}
+        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;padding:2px 7px;border-radius:20px;background:${m.bg};color:${m.color}">${m.label}</span>
+      </div>
+      <div class="row-sub">${esc(sv.description||'')}</div>
+    </div>
+    ${editBtn('service', sv.id, { name: sv.name, description: sv.description, service_type: sv.service_type })}
   </div>`;
 }
 function renderOutlet(o) {
@@ -536,9 +555,10 @@ async function loadProgramConfigure() {
   // Populate service selector with services not yet mapped
   const mappedIds = new Set(PCFG.services.map(s => s.id));
   const avail = S.services.filter(s => !mappedIds.has(s.id));
+  const typeLabel = { qr: 'QR', booking: 'Booking', discount_voucher: 'Discount' };
   const sel = document.getElementById('pcfg-svc-select');
   sel.innerHTML = '<option value="">— select service —</option>' +
-    avail.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+    avail.map(s => `<option value="${s.id}">${esc(s.name)} (${typeLabel[s.service_type] || s.service_type})</option>`).join('');
 
   renderPcfgServices();
   renderPcfgMatrix();
@@ -555,18 +575,18 @@ function renderPcfgServices() {
     return;
   }
   const canEdit = can('programs:edit');
-  const modelMeta = {
-    issuance:   { color: '#6d28d9', bg: '#ede9fe', label: 'Issuance',   desc: 'Billed when voucher is created' },
-    redemption: { color: '#059669', bg: '#d1fae5', label: 'Redemption', desc: 'Billed when voucher is redeemed' },
-    discount:   { color: '#b45309', bg: '#fef3c7', label: 'Discount',   desc: 'Billed as actual discount given' },
+  const typeMeta = {
+    qr:               { color: '#0369a1', bg: '#e0f2fe', label: 'QR-Based',        desc: 'Passenger scans QR code at the outlet' },
+    booking:          { color: '#6d28d9', bg: '#ede9fe', label: 'Booking',          desc: 'Advance reservation required' },
+    discount_voucher: { color: '#b45309', bg: '#fef3c7', label: 'Discount Voucher', desc: 'Applied as a discount at checkout' },
   };
 
   el.innerHTML = `<div class="pcfg-svc-list">
     ${PCFG.services.map(sv => {
-      const m = modelMeta[sv.billing_model] || { color: '#475569', bg: '#f1f5f9', label: sv.billing_model, desc: '' };
-      const rateStr = sv.billing_model === 'discount'
-        ? `₹${sv.discount_value} ceiling`
-        : `₹${parseFloat(sv.unit_price).toFixed(2)} / use`;
+      const m = typeMeta[sv.service_type] || { color: '#475569', bg: '#f1f5f9', label: sv.service_type || '—', desc: '' };
+      const rateBlock = sv.service_type === 'discount_voucher' && sv.discount_value != null
+        ? `<div class="pcfg-svc-rate">₹${parseFloat(sv.discount_value).toFixed(2)} ceiling</div>`
+        : '';
       return `<div class="pcfg-svc-item">
         <div class="pcfg-svc-accent" style="background:${m.color}"></div>
         <div class="pcfg-svc-body">
@@ -574,9 +594,9 @@ function renderPcfgServices() {
           <div class="pcfg-svc-sub">${m.desc}</div>
         </div>
         <span class="pcfg-billing-tag" style="background:${m.bg};color:${m.color};border:1px solid ${m.color}33">${m.label}</span>
-        <div class="pcfg-svc-rate">${rateStr}</div>
+        ${rateBlock}
         ${canEdit ? `
-          <button class="pcfg-svc-edit" onclick="pcfgEditService('${sv.id}','${sv.billing_model}',${sv.unit_price},${sv.discount_value ?? 'null'})">Edit</button>
+          <button class="pcfg-svc-edit" onclick="pcfgEditService('${sv.id}',${sv.discount_value ?? 'null'})">Edit</button>
           <button class="pcfg-svc-del" onclick="pcfgRemoveService('${sv.id}')" title="Remove service">×</button>
         ` : ''}
       </div>`;
@@ -679,60 +699,59 @@ function pcfgToggleAddService() {
   const form = document.getElementById('pcfg-add-svc-form');
   form.classList.toggle('hidden');
   if (!form.classList.contains('hidden')) {
-    // Reset form to add mode
-    document.getElementById('pcfg-svc-select').disabled = false;
-    document.getElementById('pcfg-svc-billing').value = 'issuance';
-    document.getElementById('pcfg-unit-price').value = '';
+    const sel = document.getElementById('pcfg-svc-select');
+    sel.disabled = false;
+    sel.value = '';
     document.getElementById('pcfg-discount-value').value = '';
-    pcfgToggleBillingFields();
+    document.getElementById('pcfg-discount-row').classList.add('hidden');
   }
 }
 
-function pcfgToggleBillingFields() {
-  const model = document.getElementById('pcfg-svc-billing').value;
-  document.getElementById('pcfg-unit-price-row').classList.toggle('hidden', model === 'discount');
-  document.getElementById('pcfg-discount-row').classList.toggle('hidden', model !== 'discount');
+function pcfgOnServiceSelect() {
+  const svcId = document.getElementById('pcfg-svc-select').value;
+  const svc = S.services.find(s => s.id === svcId);
+  const isDiscount = svc?.service_type === 'discount_voucher';
+  document.getElementById('pcfg-discount-row').classList.toggle('hidden', !isDiscount);
+  if (!isDiscount) document.getElementById('pcfg-discount-value').value = '';
 }
 
-function pcfgEditService(svcId, model, unitPrice, discountValue) {
+function pcfgEditService(svcId, discountValue) {
   const form = document.getElementById('pcfg-add-svc-form');
   form.classList.remove('hidden');
   const sel = document.getElementById('pcfg-svc-select');
-  // Add the service back to the selector if not there
   const already = Array.from(sel.options).find(o => o.value === svcId);
   if (!already) {
     const sv = S.services.find(s => s.id === svcId);
     if (sv) {
+      const typeLabel = { qr: 'QR', booking: 'Booking', discount_voucher: 'Discount' };
       const opt = document.createElement('option');
-      opt.value = sv.id; opt.textContent = sv.name;
+      opt.value = sv.id; opt.textContent = `${sv.name} (${typeLabel[sv.service_type] || sv.service_type})`;
       sel.appendChild(opt);
     }
   }
   sel.value = svcId;
-  sel.disabled = true; // can't change service in edit mode
-  document.getElementById('pcfg-svc-billing').value = model;
-  document.getElementById('pcfg-unit-price').value = unitPrice ?? '';
-  document.getElementById('pcfg-discount-value').value = discountValue ?? '';
-  pcfgToggleBillingFields();
+  sel.disabled = true;
+  pcfgOnServiceSelect();
+  if (discountValue !== null && discountValue !== undefined) {
+    document.getElementById('pcfg-discount-value').value = discountValue;
+  }
 }
 
 async function pcfgSaveService() {
   const pid   = PCFG.programId;
   const svcId = document.getElementById('pcfg-svc-select').value;
-  const model = document.getElementById('pcfg-svc-billing').value;
-  const unitP = document.getElementById('pcfg-unit-price').value;
-  const discV = document.getElementById('pcfg-discount-value').value;
-
   if (!svcId) return toast('Select a service', 'error');
-  if (model !== 'discount' && (unitP === '' || parseFloat(unitP) < 0)) return toast('Enter a billing rate (0 for complimentary)', 'error');
-  if (model === 'discount' && (!discV || parseFloat(discV) <= 0)) return toast('Enter a discount ceiling greater than 0', 'error');
 
-  await POST(`/api/programs/${pid}/services`, {
-    service_id:     svcId,
-    billing_model:  model,
-    unit_price:     parseFloat(unitP) || 0,
-    discount_value: model === 'discount' ? parseFloat(discV) : null,
-  });
+  const svc = S.services.find(s => s.id === svcId);
+  const body = { service_id: svcId };
+
+  if (svc?.service_type === 'discount_voucher') {
+    const discV = document.getElementById('pcfg-discount-value').value;
+    if (!discV || parseFloat(discV) <= 0) return toast('Enter a discount ceiling greater than 0', 'error');
+    body.discount_value = parseFloat(discV);
+  }
+
+  await POST(`/api/programs/${pid}/services`, body);
   toast('Service saved');
   document.getElementById('pcfg-add-svc-form').classList.add('hidden');
   document.getElementById('pcfg-svc-select').disabled = false;
