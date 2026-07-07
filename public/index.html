@@ -50,6 +50,45 @@
     /* ── Reset password inline form ── */
     .reset-row { display: flex; gap: 8px; margin-top: 6px; }
     .reset-row input { flex: 1; }
+
+    /* ── Outlet services builder ── */
+    .outlet-svc-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 10px; background: #0f172a; border-radius: 7px; margin-bottom: 6px;
+    }
+    .outlet-svc-row .svc-name { flex: 1; font-size: 13px; color: #e2e8f0; }
+    .outlet-svc-row .svc-price-val { font-size: 12px; color: #94a3b8; }
+    .outlet-svc-row .btn-remove-svc { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px; padding: 0 4px; line-height: 1; }
+
+    /* ── Program outlet pricing ── */
+    .po-outlet-block {
+      border: 1px solid #334155; border-radius: 10px; margin-bottom: 14px; overflow: hidden;
+    }
+    .po-outlet-header {
+      background: #1e293b; padding: 12px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .po-outlet-header .outlet-label { font-size: 14px; font-weight: 600; color: #f8fafc; }
+    .po-outlet-header .outlet-meta  { font-size: 12px; color: #64748b; margin-top: 2px; }
+    .po-service-row {
+      display: grid; grid-template-columns: 1fr 110px 140px 80px;
+      gap: 12px; align-items: center;
+      padding: 10px 16px; border-top: 1px solid #1e293b; font-size: 13px;
+    }
+    .po-service-row.header { color: #64748b; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+    .po-service-row input[type=number] { width: 100%; padding: 5px 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font-size: 13px; }
+    .po-service-row input[type=number]:focus { border-color: #6366f1; outline: none; }
+    .price-cluster {
+      border: 1px solid #334155; border-radius: 10px; margin-bottom: 14px; overflow: hidden;
+    }
+    .price-cluster-header {
+      background: #1e293b; padding: 10px 16px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .price-cluster-header .cluster-label { font-size: 13px; font-weight: 600; color: #e2e8f0; }
+    .price-cluster-header .cluster-outlets { font-size: 11px; color: #64748b; }
+    .po-edit-price { background: none; border: 1px solid #334155; color: #6366f1; border-radius: 5px; padding: 3px 8px; font-size: 11px; cursor: pointer; }
+    .po-edit-price:hover { background: #1e293b; }
   </style>
 </head>
 <body>
@@ -71,6 +110,7 @@
         <a class="nav-link" data-section="services">Services</a>
         <a class="nav-link" data-section="vendors">Vendors</a>
         <a class="nav-link" data-section="outlets">Outlets</a>
+        <a class="nav-link" data-section="outlet-groups">Outlet Groups</a>
       </div>
       <div class="nav-group" id="nav-programs">
         <div class="nav-label">Programs</div>
@@ -205,8 +245,16 @@
               <input type="checkbox" name="requires_boarding_pass" id="chk-bp">
               <label for="chk-bp">Requires boarding pass (egate lounge)</label>
             </div>
-            <div class="field"><label>Map Services</label>
-              <div id="outlet-service-checks" class="check-group">No services yet — add from Services tab</div>
+            <div class="field">
+              <label>Services at this outlet</label>
+              <div id="outlet-services-builder" style="margin-top:6px">
+                <div id="outlet-services-list" style="margin-bottom:8px"></div>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <select id="outlet-svc-pick" style="flex:1"><option value="">— add service —</option></select>
+                  <input id="outlet-svc-price" type="number" min="0" step="0.01" placeholder="Walk-in ₹" style="width:120px">
+                  <button type="button" class="btn-secondary" onclick="addOutletServiceRow()">+ Add</button>
+                </div>
+              </div>
             </div>
             <button type="submit" class="btn-primary">Create Outlet</button>
           </form>
@@ -215,6 +263,109 @@
           <div class="card-title">All Outlets</div>
           <div id="list-outlets" class="list-body">Loading…</div>
         </div>
+      </div>
+    </section>
+
+    <!-- ── OUTLET GROUPS ──────────────────────────────────── -->
+    <section id="section-outlet-groups" class="section">
+      <div class="page-header">
+        <h1>Outlet Groups</h1>
+        <p>Group outlets together for bulk program mapping.</p>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Create Group</div>
+          <form id="form-outlet-group">
+            <div class="field"><label>Group Name *</label><input name="name" placeholder="DEL Lounges" required></div>
+            <div class="field"><label>Description</label><input name="description" placeholder="All lounge outlets at Indira Gandhi Airport"></div>
+            <button type="submit" class="btn-primary">Create Group</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-title">All Groups</div>
+          <div id="list-outlet-groups" class="list-body">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── OUTLET GROUP DETAIL ────────────────────────────── -->
+    <section id="section-outlet-group-detail" class="section">
+      <div class="page-header" style="align-items:flex-start">
+        <div>
+          <button class="btn-secondary" style="margin-bottom:10px;font-size:12px" onclick="showSection('outlet-groups')">← Back to Groups</button>
+          <h1 id="og-detail-name">Group Name</h1>
+          <p id="og-detail-desc" style="color:#64748b;font-size:13px"></p>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Add Outlet to Group</div>
+          <div class="field">
+            <label>Select Outlet</label>
+            <select id="og-outlet-pick"><option value="">— select outlet —</option></select>
+          </div>
+          <button class="btn-primary" onclick="addOutletToGroup()">Add to Group</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Outlets in this Group</div>
+          <div id="og-detail-outlets" class="list-body">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── PROGRAM OUTLET PRICING ─────────────────────────── -->
+    <section id="section-program-outlets" class="section">
+      <div class="page-header" style="align-items:flex-start">
+        <div>
+          <button class="btn-secondary" style="margin-bottom:10px;font-size:12px" onclick="showSection('programs')">← Back to Programs</button>
+          <h1>Outlet Mapping &amp; Pricing</h1>
+          <p id="po-program-label" style="color:#94a3b8;font-size:13px"></p>
+        </div>
+      </div>
+
+      <!-- Add controls -->
+      <div class="card" style="margin-bottom:20px">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+          <span style="font-size:14px;font-weight:600;color:#e2e8f0">Add to program:</span>
+          <button class="btn-secondary" id="btn-po-add-outlet" onclick="poShowAddOutlet()">+ Single Outlet</button>
+          <button class="btn-secondary" id="btn-po-add-group" onclick="poShowAddGroup()">+ Outlet Group</button>
+        </div>
+
+        <!-- Single outlet add form -->
+        <div id="po-add-outlet-form" class="hidden">
+          <div style="border-top:1px solid #334155;padding-top:16px">
+            <div class="field" style="max-width:360px">
+              <label>Select Outlet</label>
+              <select id="po-outlet-select" onchange="poLoadOutletTemplate()"><option value="">— select outlet —</option></select>
+            </div>
+            <div id="po-outlet-price-table" class="hidden" style="margin-top:12px"></div>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <button class="btn-primary" id="btn-po-save-outlet" onclick="poSaveOutlet()" style="display:none">Save Outlet Mapping</button>
+              <button class="btn-secondary" onclick="poHideAddForms()">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Group add form -->
+        <div id="po-add-group-form" class="hidden">
+          <div style="border-top:1px solid #334155;padding-top:16px">
+            <div class="field" style="max-width:360px">
+              <label>Select Outlet Group</label>
+              <select id="po-group-select" onchange="poLoadGroupTemplate()"><option value="">— select group —</option></select>
+            </div>
+            <div id="po-group-price-table" class="hidden" style="margin-top:12px"></div>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <button class="btn-primary" id="btn-po-save-group" onclick="poSaveGroup()" style="display:none">Save Group Mapping</button>
+              <button class="btn-secondary" onclick="poHideAddForms()">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mapped outlets -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:16px">Mapped Outlets <span id="po-mapped-count" style="font-size:12px;font-weight:400;color:#64748b"></span></div>
+        <div id="po-mapped-list" class="list-body">Loading…</div>
       </div>
     </section>
 

@@ -160,6 +160,32 @@ async function createSchema() {
         PRIMARY KEY (user_id, program_id)
       );
 
+      -- Walk-in price per outlet-service
+      ALTER TABLE outlet_services ADD COLUMN IF NOT EXISTS walking_price NUMERIC(10,2) NOT NULL DEFAULT 0;
+
+      -- Outlet groups
+      CREATE TABLE IF NOT EXISTS outlet_groups (
+        id          TEXT PRIMARY KEY,
+        name        TEXT NOT NULL,
+        description TEXT,
+        created_at  TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS outlet_group_members (
+        outlet_group_id TEXT NOT NULL REFERENCES outlet_groups(id) ON DELETE CASCADE,
+        outlet_id       TEXT NOT NULL REFERENCES outlets(id)       ON DELETE CASCADE,
+        PRIMARY KEY (outlet_group_id, outlet_id)
+      );
+
+      -- Program-outlet-service pricing (3-way junction; replaces program_outlets.price)
+      CREATE TABLE IF NOT EXISTS program_outlet_services (
+        program_id TEXT NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+        outlet_id  TEXT NOT NULL REFERENCES outlets(id)  ON DELETE CASCADE,
+        service_id TEXT NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+        price      NUMERIC(10,2) NOT NULL,
+        PRIMARY KEY (program_id, outlet_id, service_id)
+      );
+
     `);
 
     // Seed default superadmin on first run

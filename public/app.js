@@ -5,7 +5,17 @@ function redirectLogin() { window.location.href = '/login.html'; }
 
 /* ── State ────────────────────────────────────────────────────────────── */
 let USER = null;
-const S = { clients: [], sites: [], services: [], outlets: [], programs: [], vendors: [], currentProgram: null };
+const S = {
+  clients: [], sites: [], services: [], outlets: [], programs: [],
+  vendors: [], outletGroups: [], currentProgram: null,
+  activeGroupId: null,        // for outlet-group-detail section
+  activeProgramForOutlets: null, // for program-outlets section
+  // transient state for outlet create form
+  pendingOutletServices: [],
+  // transient state for program-outlet pricing forms
+  poOutletTemplate: null,
+  poGroupTemplate: null,
+};
 
 /* ── Permission helper ────────────────────────────────────────────────── */
 function can(perm) {
@@ -62,7 +72,10 @@ async function onSectionEnter(name) {
   if (name === 'sites')            { await loadSites(); }
   if (name === 'services')         { await loadServices(); }
   if (name === 'vendors')          { await loadVendors(); }
-  if (name === 'outlets')          { await loadOutlets(); populateSelect('#form-outlet select[name=site_id]', S.sites, 'id', s => `${s.name} (${s.iata_code})`); populateSelect('#form-outlet select[name=vendor_id]', S.vendors, 'id', v => v.name, true); populateServiceChecks(); }
+  if (name === 'outlets')          { await loadOutlets(); populateSelect('#form-outlet select[name=site_id]', S.sites, 'id', s => `${s.name} (${s.iata_code})`); populateSelect('#form-outlet select[name=vendor_id]', S.vendors, 'id', v => v.name, true); initOutletServiceBuilder(); }
+  if (name === 'outlet-groups')    { await loadOutletGroups(); }
+  if (name === 'outlet-group-detail') { await loadOutletGroupDetail(); }
+  if (name === 'program-outlets')  { await loadProgramOutlets(); }
   if (name === 'programs')         { await loadPrograms(); populateSelect('select[name=client_id]', S.clients, 'id', c => c.name); }
   if (name === 'configure')        { await loadAll(); populateCfgSelects(); }
   if (name === 'voucher')          { await loadPrograms(); populateSelect('#vch-program', S.programs, 'id', p => `${p.name} [${p.code_prefix}]`); }
@@ -83,6 +96,7 @@ function applyPermissionGating() {
     'services':         'services:view',
     'vendors':          'vendors:view',
     'outlets':          'outlets:view',
+    'outlet-groups':    'outlets:view',
     'programs':         'programs:view',
     'configure':        'programs:view',
     'voucher':          'vouchers:create',
@@ -138,8 +152,9 @@ async function loadSites()    { S.sites    = await GET('/api/sites');    renderL
 async function loadServices() { S.services = await GET('/api/services'); renderList('services', S.services, renderService); }
 async function loadOutlets()  { S.outlets  = await GET('/api/outlets');  renderList('outlets',  S.outlets,  renderOutlet); }
 async function loadPrograms() { S.programs = await GET('/api/programs'); renderList('programs', S.programs, renderProgram); }
-async function loadVendors()  { S.vendors  = await GET('/api/vendors');  if (S.vendors) renderList('vendors', S.vendors, renderVendor); }
-async function loadAll()      { await Promise.all([loadClients(), loadSites(), loadServices(), loadOutlets(), loadPrograms(), loadVendors()]); }
+async function loadVendors()      { S.vendors      = await GET('/api/vendors');       if (S.vendors)      renderList('vendors', S.vendors, renderVendor); }
+async function loadOutletGroups() { S.outletGroups = await GET('/api/outlet-groups'); if (S.outletGroups) renderList('outlet-groups', S.outletGroups, renderOutletGroup); }
+async function loadAll()          { await Promise.all([loadClients(), loadSites(), loadServices(), loadOutlets(), loadPrograms(), loadVendors(), loadOutletGroups()]); }
 
 async function loadUsers() {
   const users = await GET('/api/admin/users');
@@ -236,6 +251,14 @@ const EDIT_CONFIGS = {
       { name: 'name',  label: 'Vendor Name *', type: 'text' },
       { name: 'email', label: 'Email',         type: 'text' },
       { name: 'phone', label: 'Phone',         type: 'text' },
+    ]
+  },
+  outletGroup: {
+    title: 'Edit Outlet Group',
+    api:   id => `/api/outlet-groups/${id}`,
+    fields: [
+      { name: 'name',        label: 'Group Name *',  type: 'text' },
+      { name: 'description', label: 'Description',   type: 'text' },
     ]
   },
 };
@@ -344,16 +367,32 @@ function renderService(sv) {
 }
 function renderOutlet(o) {
   const svcs = Array.isArray(o.services) ? o.services.filter(Boolean) : [];
+  const svcTags = svcs.map(s => typeof s === 'object' ? `${esc(s.name)} <span style="color:#64748b;font-size:11px">₹${s.walking_price||0}</span>` : esc(s)).join(' · ');
   return `<div class="row-item">
     <div class="row-main">
       <div class="row-name">${esc(o.name)} <span class="tag">${esc(o.iata_code||'')}</span>${o.requires_boarding_pass ? '<span class="tag tag-amber">BP req</span>' : ''}</div>
-      <div class="row-sub">${esc(o.site_name||'')} · ${esc(o.terminal_name||'')} ${esc(o.direction||'')} ${svcs.length ? '· <em>' + svcs.join(', ') + '</em>' : ''}</div>
+      <div class="row-sub">${esc(o.site_name||'')} · ${esc(o.vendor_name||'')}${svcTags ? ' · ' + svcTags : ''}</div>
     </div>
-    ${editBtn('outlet', o.id, {
-      name: o.name, vendor_id: o.vendor_id, terminal_type: o.terminal_type,
-      terminal_name: o.terminal_name, gate_type: o.gate_type, direction: o.direction,
-      amenities: o.amenities, requires_boarding_pass: o.requires_boarding_pass
-    })}
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="po-edit-price" onclick="openOutletServicesEditor('${o.id}','${esc(o.name)}')">Services</button>
+      ${editBtn('outlet', o.id, {
+        name: o.name, vendor_id: o.vendor_id, terminal_type: o.terminal_type,
+        terminal_name: o.terminal_name, gate_type: o.gate_type, direction: o.direction,
+        amenities: o.amenities, requires_boarding_pass: o.requires_boarding_pass
+      })}
+    </div>
+  </div>`;
+}
+function renderOutletGroup(g) {
+  return `<div class="row-item">
+    <div class="row-main">
+      <div class="row-name">${esc(g.name)} <span class="tag tag-blue">${g.outlet_count} outlets</span></div>
+      <div class="row-sub">${esc(g.description||'')}</div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="po-edit-price" onclick="openOutletGroupDetail('${g.id}','${esc(g.name)}','${esc(g.description||'')}')">Manage</button>
+      ${editBtn('outletGroup', g.id, { name: g.name, description: g.description||'' })}
+    </div>
   </div>`;
 }
 function renderProgram(p) {
@@ -363,7 +402,10 @@ function renderProgram(p) {
       <div class="row-sub">${esc(p.client_name||'')} · ${p.validity_days}d validity</div>
       <div class="api-key-box">${esc(p.api_key)}</div>
     </div>
-    ${editBtn('program', p.id, { name: p.name, validity_days: p.validity_days, restriction_level: p.restriction_level })}
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="po-edit-price" onclick="openProgramOutlets('${p.id}','${esc(p.name)}')">Outlet Pricing</button>
+      ${editBtn('program', p.id, { name: p.name, validity_days: p.validity_days, restriction_level: p.restriction_level })}
+    </div>
   </div>`;
 }
 function renderVendor(v) {
@@ -713,6 +755,338 @@ async function loadReportNotifications() {
     : '<p style="color:#94a3b8;font-style:italic;padding:8px 0">No notifications found</p>';
 }
 
+/* ── Outlet service builder (create form) ───────────────────────── */
+function initOutletServiceBuilder() {
+  S.pendingOutletServices = [];
+  renderPendingOutletServices();
+  // Populate service picker
+  const pick = document.getElementById('outlet-svc-pick');
+  if (!pick) return;
+  pick.innerHTML = '<option value="">— add service —</option>' +
+    S.services.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+}
+
+function addOutletServiceRow() {
+  const pick  = document.getElementById('outlet-svc-pick');
+  const price = document.getElementById('outlet-svc-price');
+  const sid   = pick.value;
+  const sname = pick.options[pick.selectedIndex]?.text;
+  if (!sid) { toast('Select a service first', 'error'); return; }
+  if (S.pendingOutletServices.find(s => s.service_id === sid)) {
+    toast('Service already added', 'error'); return;
+  }
+  S.pendingOutletServices.push({ service_id: sid, service_name: sname, walking_price: parseFloat(price.value) || 0 });
+  pick.value = ''; price.value = '';
+  renderPendingOutletServices();
+}
+
+function removePendingOutletService(sid) {
+  S.pendingOutletServices = S.pendingOutletServices.filter(s => s.service_id !== sid);
+  renderPendingOutletServices();
+}
+
+function renderPendingOutletServices() {
+  const el = document.getElementById('outlet-services-list');
+  if (!el) return;
+  el.innerHTML = S.pendingOutletServices.length
+    ? S.pendingOutletServices.map(s => `
+        <div class="outlet-svc-row">
+          <span class="svc-name">${esc(s.service_name)}</span>
+          <span class="svc-price-val">₹${s.walking_price}</span>
+          <button type="button" class="btn-remove-svc" onclick="removePendingOutletService('${s.service_id}')">×</button>
+        </div>`).join('')
+    : '<p style="color:#64748b;font-size:12px;margin:0">No services added yet</p>';
+}
+
+/* ── Outlet services editor (existing outlet) ───────────────────── */
+let _outletServicesId = null;
+
+async function openOutletServicesEditor(outletId, outletName) {
+  _outletServicesId = outletId;
+  const current = await GET(`/api/outlets/${outletId}/services`);
+  if (!current) return;
+
+  // Build a simple modal body
+  const allSvcs = S.services;
+  let mapped = current.map(s => ({ ...s, _exists: true }));
+
+  const html = `
+    <p style="color:#64748b;font-size:12px;margin-bottom:16px">Services offered at <strong style="color:#e2e8f0">${esc(outletName)}</strong> with their walk-in prices.</p>
+    <div id="outlet-svc-editor-rows">
+      ${allSvcs.map(svc => {
+        const existing = mapped.find(m => m.service_id === svc.id);
+        const checked  = !!existing;
+        const price    = existing?.walking_price ?? 0;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #1e293b">
+          <input type="checkbox" id="osvc-${svc.id}" value="${svc.id}" ${checked ? 'checked' : ''}
+            onchange="toggleOutletSvcPrice('${svc.id}')" style="accent-color:#6366f1;width:15px;height:15px;cursor:pointer">
+          <label for="osvc-${svc.id}" style="flex:1;font-size:13px;color:#e2e8f0;cursor:pointer">${esc(svc.name)}</label>
+          <div style="display:flex;align-items:center;gap:4px" id="osvc-price-wrap-${svc.id}" ${checked ? '' : 'style="opacity:.3;pointer-events:none"'}>
+            <span style="font-size:12px;color:#64748b">Walk-in ₹</span>
+            <input type="number" id="osvc-price-${svc.id}" value="${price}" min="0" step="0.01"
+              style="width:90px;padding:4px 8px;border-radius:6px;border:1px solid #475569;background:#0f172a;color:#e2e8f0;font-size:12px">
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  document.getElementById('edit-modal-body').innerHTML = html;
+  document.getElementById('edit-modal').classList.remove('hidden');
+  document.querySelector('#edit-modal .modal-title').textContent = 'Manage Services';
+  // Override save button to use outlet services save
+  document.querySelector('#edit-modal .modal-footer button.btn-primary').onclick = saveOutletServices;
+}
+
+function toggleOutletSvcPrice(svcId) {
+  const chk  = document.getElementById(`osvc-${svcId}`);
+  const wrap = document.getElementById(`osvc-price-wrap-${svcId}`);
+  wrap.style.opacity         = chk.checked ? '1' : '.3';
+  wrap.style.pointerEvents   = chk.checked ? 'auto' : 'none';
+}
+
+async function saveOutletServices() {
+  const services = [];
+  for (const svc of S.services) {
+    const chk = document.getElementById(`osvc-${svc.id}`);
+    if (chk?.checked) {
+      const price = parseFloat(document.getElementById(`osvc-price-${svc.id}`)?.value) || 0;
+      services.push({ service_id: svc.id, walking_price: price });
+    }
+  }
+  const ok = await PUT(`/api/outlets/${_outletServicesId}/services`, { services });
+  if (ok) { toast('Services updated'); closeEditModal(); await loadOutlets(); }
+}
+
+/* ── Outlet Group detail ─────────────────────────────────────────── */
+async function openOutletGroupDetail(groupId, name, desc) {
+  S.activeGroupId = groupId;
+  document.getElementById('og-detail-name').textContent = name;
+  document.getElementById('og-detail-desc').textContent = desc || '';
+  showSection('outlet-group-detail');
+}
+
+async function loadOutletGroupDetail() {
+  if (!S.activeGroupId) return;
+  // Populate outlet picker (outlets not already in group)
+  const members = await GET(`/api/outlet-groups/${S.activeGroupId}/outlets`);
+  if (!members) return;
+
+  const memberIds = new Set(members.map(m => m.id));
+  const available = S.outlets.filter(o => !memberIds.has(o.id));
+  populateSelect('#og-outlet-pick', available, 'id', o => `${o.name} (${o.iata_code})`);
+
+  const el = document.getElementById('og-detail-outlets');
+  el.innerHTML = members.length
+    ? members.map(o => `
+        <div class="row-item">
+          <div class="row-main">
+            <div class="row-name">${esc(o.name)} <span class="tag">${esc(o.iata_code)}</span></div>
+            <div class="row-sub">${esc(o.site_name||'')} · ${esc(o.vendor_name||'')}</div>
+          </div>
+          <button class="btn-secondary" style="font-size:11px;padding:4px 10px;color:#ef4444;border-color:#ef4444"
+            onclick="removeOutletFromGroup('${o.id}')">Remove</button>
+        </div>`).join('')
+    : '<p style="color:#64748b;font-size:13px">No outlets in this group yet.</p>';
+}
+
+async function addOutletToGroup() {
+  const outletId = document.getElementById('og-outlet-pick').value;
+  if (!outletId) { toast('Select an outlet first', 'error'); return; }
+  const ok = await POST(`/api/outlet-groups/${S.activeGroupId}/outlets`, { outlet_id: outletId });
+  if (ok) { toast('Outlet added to group'); await loadOutletGroupDetail(); }
+}
+
+async function removeOutletFromGroup(outletId) {
+  await DEL(`/api/outlet-groups/${S.activeGroupId}/outlets/${outletId}`);
+  toast('Outlet removed'); await loadOutletGroupDetail();
+}
+
+/* ── Program Outlet Pricing ──────────────────────────────────────── */
+async function openProgramOutlets(programId, programName) {
+  S.activeProgramForOutlets = programId;
+  document.getElementById('po-program-label').textContent = `Program: ${programName}`;
+  poHideAddForms();
+  showSection('program-outlets');
+}
+
+async function loadProgramOutlets() {
+  if (!S.activeProgramForOutlets) return;
+  const pid = S.activeProgramForOutlets;
+
+  // Populate outlet + group selectors for adding
+  const mapped  = await GET(`/api/programs/${pid}/outlets`);
+  if (!mapped) return;
+  const mappedIds = new Set(mapped.map(m => m.outlet_id));
+  const available = S.outlets.filter(o => !mappedIds.has(o.id));
+  populateSelect('#po-outlet-select', available, 'id', o => `${o.name} (${o.iata_code})`);
+  populateSelect('#po-group-select', S.outletGroups, 'id', g => `${g.name} (${g.outlet_count} outlets)`);
+
+  // Render mapped outlets
+  const count = document.getElementById('po-mapped-count');
+  count.textContent = mapped.length ? `— ${mapped.length} outlet(s)` : '';
+
+  const el = document.getElementById('po-mapped-list');
+  if (!mapped.length) { el.innerHTML = '<p style="color:#64748b;font-size:13px">No outlets mapped yet. Use the controls above to add outlets or groups.</p>'; return; }
+
+  el.innerHTML = mapped.map(o => `
+    <div class="po-outlet-block">
+      <div class="po-outlet-header">
+        <div>
+          <div class="outlet-label">${esc(o.outlet_name)}</div>
+          <div class="outlet-meta">${esc(o.iata_code||'')} · ${esc(o.site_name||'')} · ${esc(o.vendor_name||'')}</div>
+        </div>
+        <button class="btn-secondary" style="font-size:11px;padding:4px 12px;color:#ef4444;border-color:#ef4444"
+          onclick="poRemoveOutlet('${o.outlet_id}')">Remove</button>
+      </div>
+      <div class="po-service-row header">
+        <span>Service</span><span>Walk-in</span><span>Program Price</span><span></span>
+      </div>
+      ${o.services.map(s => `
+        <div class="po-service-row">
+          <span>${esc(s.service_name)}</span>
+          <span style="color:#64748b">₹${s.walking_price}</span>
+          <span style="font-weight:600;color:#22c55e">₹${s.program_price}</span>
+          <button class="po-edit-price" onclick="poEditPrice('${o.outlet_id}','${s.service_id}',${s.program_price})">Edit</button>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+function poShowAddOutlet() {
+  document.getElementById('po-add-outlet-form').classList.toggle('hidden');
+  document.getElementById('po-add-group-form').classList.add('hidden');
+}
+function poShowAddGroup() {
+  document.getElementById('po-add-group-form').classList.toggle('hidden');
+  document.getElementById('po-add-outlet-form').classList.add('hidden');
+}
+function poHideAddForms() {
+  document.getElementById('po-add-outlet-form')?.classList.add('hidden');
+  document.getElementById('po-add-group-form')?.classList.add('hidden');
+}
+
+async function poLoadOutletTemplate() {
+  const outletId = document.getElementById('po-outlet-select').value;
+  const saveBtn  = document.getElementById('btn-po-save-outlet');
+  const tableEl  = document.getElementById('po-outlet-price-table');
+  S.poOutletTemplate = null;
+  saveBtn.style.display = 'none';
+  tableEl.classList.add('hidden');
+  if (!outletId) return;
+
+  const data = await GET(`/api/programs/${S.activeProgramForOutlets}/outlets/pricing-template?outlet_id=${outletId}`);
+  if (!data) return;
+  const svcs = data.services.filter(s => !s.already_mapped);
+  if (!svcs.length) {
+    tableEl.innerHTML = '<p style="color:#f59e0b;font-size:13px">All eligible services are already mapped for this outlet.</p>';
+    tableEl.classList.remove('hidden'); return;
+  }
+
+  S.poOutletTemplate = { outlet_id: outletId, services: svcs };
+  tableEl.innerHTML = `
+    <div class="po-service-row header"><span>Service</span><span>Walk-in</span><span>Program Price *</span><span></span></div>
+    ${svcs.map(s => `
+      <div class="po-service-row">
+        <span>${esc(s.service_name)}</span>
+        <span style="color:#64748b">₹${s.walking_price}</span>
+        <input type="number" id="po-price-${s.service_id}" placeholder="Required" min="0" step="0.01" style="max-width:130px">
+        <span></span>
+      </div>`).join('')}
+    <p style="font-size:11px;color:#64748b;margin:8px 0 0">* Enter 0 for complimentary</p>`;
+  tableEl.classList.remove('hidden');
+  saveBtn.style.display = 'inline-block';
+}
+
+async function poSaveOutlet() {
+  if (!S.poOutletTemplate) return;
+  const services = S.poOutletTemplate.services.map(s => ({
+    service_id: s.service_id,
+    price: document.getElementById(`po-price-${s.service_id}`)?.value
+  }));
+  const missing = services.find(s => s.price === '' || s.price === null || s.price === undefined);
+  if (missing) { toast('Enter a price for every service (0 = free)', 'error'); return; }
+
+  const ok = await POST(`/api/programs/${S.activeProgramForOutlets}/outlets`, {
+    outlet_id: S.poOutletTemplate.outlet_id,
+    services: services.map(s => ({ ...s, price: parseFloat(s.price) }))
+  });
+  if (ok) { toast('Outlet added to program'); poHideAddForms(); S.poOutletTemplate = null; await loadProgramOutlets(); }
+}
+
+async function poLoadGroupTemplate() {
+  const groupId = document.getElementById('po-group-select').value;
+  const saveBtn = document.getElementById('btn-po-save-group');
+  const tableEl = document.getElementById('po-group-price-table');
+  S.poGroupTemplate = null;
+  saveBtn.style.display = 'none';
+  tableEl.classList.add('hidden');
+  if (!groupId) return;
+
+  const data = await GET(`/api/programs/${S.activeProgramForOutlets}/outlets/group-pricing-template?outlet_group_id=${groupId}`);
+  if (!data) return;
+  if (data.already_fully_mapped) {
+    tableEl.innerHTML = '<p style="color:#f59e0b;font-size:13px">All outlets in this group are already fully mapped.</p>';
+    tableEl.classList.remove('hidden'); return;
+  }
+
+  S.poGroupTemplate = data.clusters;
+  tableEl.innerHTML = data.clusters.map((cluster, ci) => `
+    <div class="price-cluster">
+      <div class="price-cluster-header">
+        <span class="cluster-label">Services: ${cluster.services.map(s => esc(s.service_name)).join(' + ')}</span>
+        <span class="cluster-outlets">${cluster.outlets.length} outlet(s): ${cluster.outlets.map(o => esc(o.outlet_name)).join(', ')}</span>
+      </div>
+      <div style="padding:12px 16px">
+        <div class="po-service-row header" style="padding:0 0 8px"><span>Service</span><span>Walk-in (varies)</span><span>Program Price *</span><span></span></div>
+        ${cluster.services.map(s => `
+          <div class="po-service-row" style="padding:6px 0">
+            <span>${esc(s.service_name)}</span>
+            <span style="color:#64748b">₹${s.walking_price}</span>
+            <input type="number" id="po-grp-${ci}-${s.service_id}" placeholder="Required" min="0" step="0.01" style="max-width:130px">
+            <span></span>
+          </div>`).join('')}
+        <p style="font-size:11px;color:#64748b;margin:6px 0 0">* Applies to all ${cluster.outlets.length} outlet(s) above. Edit individually after saving.</p>
+      </div>
+    </div>`).join('');
+  tableEl.classList.remove('hidden');
+  saveBtn.style.display = 'inline-block';
+}
+
+async function poSaveGroup() {
+  if (!S.poGroupTemplate) return;
+  const groupId = document.getElementById('po-group-select').value;
+
+  const clusters = S.poGroupTemplate.map((cluster, ci) => {
+    const prices = {};
+    for (const s of cluster.services) {
+      const val = document.getElementById(`po-grp-${ci}-${s.service_id}`)?.value;
+      if (val === '' || val === null || val === undefined) return null;
+      prices[s.service_id] = parseFloat(val);
+    }
+    return { outlet_ids: cluster.outlets.map(o => o.outlet_id), prices };
+  });
+
+  if (clusters.includes(null)) { toast('Enter a price for every service (0 = free)', 'error'); return; }
+
+  const ok = await POST(`/api/programs/${S.activeProgramForOutlets}/outlets/groups`, {
+    outlet_group_id: groupId, clusters
+  });
+  if (ok) { toast('Group outlets added to program'); poHideAddForms(); S.poGroupTemplate = null; await loadProgramOutlets(); }
+}
+
+async function poEditPrice(outletId, serviceId, currentPrice) {
+  const newPrice = prompt(`Update program price for this service (current: ₹${currentPrice}):`, currentPrice);
+  if (newPrice === null) return;
+  if (isNaN(parseFloat(newPrice))) { toast('Invalid price', 'error'); return; }
+  const ok = await PATCH(`/api/programs/${S.activeProgramForOutlets}/outlets/${outletId}/services/${serviceId}`, { price: parseFloat(newPrice) });
+  if (ok) { toast('Price updated'); await loadProgramOutlets(); }
+}
+
+async function poRemoveOutlet(outletId) {
+  if (!confirm('Remove this outlet from the program? All service pricing rows will be deleted.')) return;
+  await DEL(`/api/programs/${S.activeProgramForOutlets}/outlets/${outletId}`);
+  toast('Outlet removed'); await loadProgramOutlets();
+}
+
 /* ── Voucher section ─────────────────────────────────────────────── */
 function applyVoucherRestriction(program) {
   const badge    = document.getElementById('vch-restriction-badge');
@@ -1000,7 +1374,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     e.preventDefault();
     const form = e.target;
     const d    = formData(form);
-    const service_ids = [].concat(d.service_ids || []);
     const payload = {
       site_id:    d.site_id,
       vendor_id:  d.vendor_id || null,
@@ -1009,10 +1382,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       gate_type: d.gate_type || null, direction: d.direction || null,
       amenities: d.amenities ? d.amenities.split(',').map(a => a.trim()).filter(Boolean) : [],
       requires_boarding_pass: !!d.requires_boarding_pass,
-      service_ids
+      services: S.pendingOutletServices
     };
-    try { await POST('/api/outlets', payload); toast('Outlet created'); form.reset(); await loadOutlets(); }
-    catch (err) { toast(err.message, 'error'); }
+    try {
+      await POST('/api/outlets', payload);
+      toast('Outlet created');
+      form.reset();
+      S.pendingOutletServices = [];
+      renderPendingOutletServices();
+      await loadOutlets();
+    } catch (err) { toast(err.message, 'error'); }
+  });
+
+  // ── Outlet Group form
+  bindForm('form-outlet-group', async (d, form) => {
+    await POST('/api/outlet-groups', d);
+    toast('Group created'); form.reset(); await loadOutletGroups();
   });
 
   // ── Program form
