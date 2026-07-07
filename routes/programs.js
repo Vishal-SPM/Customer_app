@@ -70,40 +70,6 @@ router.patch('/:id', requirePermission('programs:edit'), async (req, res) => {
   res.json(rows[0]);
 });
 
-// ── Program ↔ Outlets (with pricing) ─────────────────────────────────────────
-
-// POST /api/programs/:id/outlets
-router.post('/:id/outlets', requirePermission('programs:edit'), async (req, res) => {
-  try { await assertProgramAccess(req.user, req.params.id); } catch (e) { return res.status(e.status||403).json({ error: e.message }); }
-  const { outlet_id, price } = req.body;
-  if (!outlet_id) return res.status(400).json({ error: 'outlet_id is required' });
-  await pool.query(`
-    INSERT INTO program_outlets (program_id, outlet_id, price)
-    VALUES ($1,$2,$3)
-    ON CONFLICT (program_id, outlet_id) DO UPDATE SET price = EXCLUDED.price
-  `, [req.params.id, outlet_id, price ?? 0]);
-  res.status(201).json({ message: 'Outlet mapped', program_id: req.params.id, outlet_id, price: price ?? 0 });
-});
-
-// GET /api/programs/:id/outlets
-router.get('/:id/outlets', requirePermission('programs:view'), async (req, res) => {
-  const { rows } = await pool.query(`
-    SELECT o.*, s.name AS site_name, s.iata_code, po.price AS program_price
-    FROM outlets o
-    JOIN program_outlets po ON po.outlet_id = o.id
-    JOIN sites s ON s.id = o.site_id
-    WHERE po.program_id = $1
-    ORDER BY s.name, o.name
-  `, [req.params.id]);
-  res.json(rows);
-});
-
-// DELETE /api/programs/:id/outlets/:outlet_id
-router.delete('/:id/outlets/:outlet_id', requirePermission('programs:edit'), async (req, res) => {
-  await pool.query('DELETE FROM program_outlets WHERE program_id=$1 AND outlet_id=$2', [req.params.id, req.params.outlet_id]);
-  res.json({ message: 'Outlet removed from program' });
-});
-
 // ── Program ↔ Services ────────────────────────────────────────────────────────
 
 // POST /api/programs/:id/services

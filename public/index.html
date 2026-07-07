@@ -90,35 +90,68 @@
     .outlet-svc-row .svc-price-val { font-size: 12px; color: #94a3b8; }
     .outlet-svc-row .btn-remove-svc { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px; padding: 0 4px; line-height: 1; }
 
-    /* ── Program outlet pricing ── */
-    .po-outlet-block {
-      border: 1px solid #334155; border-radius: 10px; margin-bottom: 14px; overflow: hidden;
-    }
-    .po-outlet-header {
-      background: #1e293b; padding: 12px 16px;
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .po-outlet-header .outlet-label { font-size: 14px; font-weight: 600; color: #f8fafc; }
-    .po-outlet-header .outlet-meta  { font-size: 12px; color: #64748b; margin-top: 2px; }
-    .po-service-row {
-      display: grid; grid-template-columns: 1fr 110px 140px 80px;
-      gap: 12px; align-items: center;
-      padding: 10px 16px; border-top: 1px solid #1e293b; font-size: 13px;
-    }
-    .po-service-row.header { color: #64748b; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
-    .po-service-row input[type=number] { width: 100%; padding: 5px 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font-size: 13px; }
-    .po-service-row input[type=number]:focus { border-color: #6366f1; outline: none; }
-    .price-cluster {
-      border: 1px solid #334155; border-radius: 10px; margin-bottom: 14px; overflow: hidden;
-    }
-    .price-cluster-header {
-      background: #1e293b; padding: 10px 16px;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .price-cluster-header .cluster-label { font-size: 13px; font-weight: 600; color: #e2e8f0; }
-    .price-cluster-header .cluster-outlets { font-size: 11px; color: #64748b; }
+    /* ── Shared action button ── */
     .po-edit-price { background: none; border: 1px solid #334155; color: #6366f1; border-radius: 5px; padding: 3px 8px; font-size: 11px; cursor: pointer; }
     .po-edit-price:hover { background: #1e293b; }
+
+    /* ── Program Configure Matrix ── */
+    .pcfg-matrix { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .pcfg-matrix th {
+      background: #1e293b; color: #64748b; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .5px;
+      padding: 10px 14px; text-align: left; white-space: nowrap;
+      border-bottom: 2px solid #334155;
+    }
+    .pcfg-matrix th.svc-col { text-align: center; min-width: 120px; }
+    .pcfg-matrix td { padding: 10px 14px; border-bottom: 1px solid #1e293b; vertical-align: middle; }
+    .pcfg-matrix tr:last-child td { border-bottom: none; }
+    .pcfg-matrix tr:hover td { background: #0a1628; }
+    .pcfg-matrix td.svc-cell { text-align: center; }
+    .pcfg-price-cell {
+      display: inline-block; cursor: pointer; color: #22c55e; font-weight: 600;
+      padding: 3px 10px; border-radius: 6px; border: 1px solid transparent; font-size: 13px;
+    }
+    .pcfg-price-cell:hover { background: #052e16; border-color: #22c55e33; }
+    .pcfg-price-input {
+      width: 90px; padding: 4px 8px; border-radius: 6px;
+      border: 1px solid #6366f1; background: #0f172a; color: #e2e8f0;
+      font-size: 13px; font-weight: 600; text-align: center;
+    }
+    .pcfg-no-svc { color: #334155; font-size: 18px; }
+    .pcfg-svc-table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+      border: 1px solid #334155; border-radius: 8px; overflow: hidden;
+    }
+    .pcfg-svc-table th {
+      background: #1e293b; color: #64748b; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .5px; padding: 9px 14px; text-align: left;
+      border-bottom: 1px solid #334155;
+    }
+    .pcfg-svc-table td { padding: 10px 14px; border-bottom: 1px solid #1e293b; }
+    .pcfg-svc-table tr:last-child td { border-bottom: none; }
+    .pcfg-svc-table tr:hover td { background: #0a1628; }
+    .pcfg-billing-tag {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .5px; padding: 3px 8px; border-radius: 12px;
+    }
+    .pcfg-add-form {
+      background: #0f172a; border-radius: 10px; padding: 16px;
+      margin-bottom: 16px; border: 1px solid #334155;
+    }
+    .pcfg-outlet-row {
+      display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+      border-bottom: 1px solid #1e293b; cursor: pointer; transition: background .1s;
+    }
+    .pcfg-outlet-row:hover { background: #0f172a; }
+    .pcfg-outlet-row:last-child { border-bottom: none; }
+    .pcfg-outlet-row.selected { background: #1e3a5f; }
+    .pcfg-outlet-row input[type=radio] { accent-color: #6366f1; width: 15px; height: 15px; cursor: pointer; flex-shrink: 0; }
+    .pcfg-info-bar {
+      display: flex; gap: 24px; align-items: center; flex-wrap: wrap; padding: 14px 20px;
+      background: #1e293b; border: 1px solid #334155; border-radius: 10px; margin-bottom: 20px;
+    }
+    .pcfg-info-item label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 3px; }
+    .pcfg-info-item .val { font-size: 14px; font-weight: 700; color: #f8fafc; }
   </style>
 </head>
 <body>
@@ -145,7 +178,6 @@
       <div class="nav-group" id="nav-programs">
         <div class="nav-label">Programs</div>
         <a class="nav-link" data-section="programs">Programs</a>
-        <a class="nav-link" data-section="configure">Configure Program</a>
       </div>
       <div class="nav-group">
         <div class="nav-label">Operations</div>
@@ -388,59 +420,105 @@
       </div>
     </section>
 
-    <!-- ── PROGRAM OUTLET PRICING ─────────────────────────── -->
-    <section id="section-program-outlets" class="section">
+    <!-- ── PROGRAM CONFIGURE (unified) ─────────────────────── -->
+    <section id="section-program-configure" class="section">
       <div class="page-header" style="align-items:flex-start">
-        <div>
+        <div style="flex:1">
           <button class="btn-secondary" style="margin-bottom:10px;font-size:12px" onclick="showSection('programs')">← Back to Programs</button>
-          <h1>Outlet Mapping &amp; Pricing</h1>
-          <p id="po-program-label" style="color:#94a3b8;font-size:13px"></p>
+          <h1 id="pcfg-prog-name">Configure Program</h1>
+          <p id="pcfg-prog-meta" style="color:#94a3b8;font-size:13px"></p>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:36px">
+          <button class="btn-secondary" id="btn-pcfg-copy-key" onclick="pcfgCopyApiKey()">⧉ Copy API Key</button>
         </div>
       </div>
 
-      <!-- Add controls -->
+      <!-- Info bar -->
+      <div class="pcfg-info-bar">
+        <div class="pcfg-info-item">
+          <label>Code Prefix</label>
+          <div class="val" id="pcfg-code-prefix">—</div>
+        </div>
+        <div class="pcfg-info-item">
+          <label>Validity</label>
+          <div class="val" id="pcfg-validity">—</div>
+        </div>
+        <div class="pcfg-info-item">
+          <label>Client</label>
+          <div class="val" id="pcfg-client" style="font-size:13px;font-weight:500;color:#94a3b8">—</div>
+        </div>
+        <div class="pcfg-info-item">
+          <label>Restriction Level</label>
+          <select id="pcfg-restriction" onchange="pcfgUpdateRestriction()"
+            style="font-size:13px;padding:5px 10px;border-radius:6px;border:1px solid #475569;background:#0f172a;color:#e2e8f0;margin-top:1px">
+            <option value="program">Program — all outlets</option>
+            <option value="site">Site — one airport</option>
+            <option value="outlet">Outlet — specific outlet</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Services section -->
       <div class="card" style="margin-bottom:20px">
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
-          <span style="font-size:14px;font-weight:600;color:#e2e8f0">Add to program:</span>
-          <button class="btn-secondary" id="btn-po-add-outlet" onclick="poShowAddOutlet()">+ Single Outlet</button>
-          <button class="btn-secondary" id="btn-po-add-group" onclick="poShowAddGroup()">+ Outlet Group</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div>
+            <div class="card-title" style="margin-bottom:2px">Services</div>
+            <div style="font-size:12px;color:#64748b">Define what this program offers and how each service is billed to the client.</div>
+          </div>
+          <button class="btn-secondary" id="btn-pcfg-add-svc" onclick="pcfgToggleAddService()">+ Add Service</button>
         </div>
 
-        <!-- Single outlet add form -->
-        <div id="po-add-outlet-form" class="hidden">
-          <div style="border-top:1px solid #334155;padding-top:16px">
-            <div class="field" style="max-width:360px">
-              <label>Select Outlet</label>
-              <select id="po-outlet-select" onchange="poLoadOutletTemplate()"><option value="">— select outlet —</option></select>
+        <!-- Inline add/edit form -->
+        <div id="pcfg-add-svc-form" class="pcfg-add-form hidden">
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+            <div class="field" style="margin:0;flex:1;min-width:160px">
+              <label style="font-size:11px;color:#64748b">Service</label>
+              <select id="pcfg-svc-select"></select>
             </div>
-            <div id="po-outlet-price-table" class="hidden" style="margin-top:12px"></div>
-            <div style="display:flex;gap:8px;margin-top:12px">
-              <button class="btn-primary" id="btn-po-save-outlet" onclick="poSaveOutlet()" style="display:none">Save Outlet Mapping</button>
-              <button class="btn-secondary" onclick="poHideAddForms()">Cancel</button>
+            <div class="field" style="margin:0;min-width:170px">
+              <label style="font-size:11px;color:#64748b">Billing Model</label>
+              <select id="pcfg-svc-billing" onchange="pcfgToggleBillingFields()">
+                <option value="issuance">Issuance — bill on create</option>
+                <option value="redemption">Redemption — bill on redeem</option>
+                <option value="discount">Discount — bill actual discount</option>
+              </select>
+            </div>
+            <div class="field" style="margin:0;min-width:130px" id="pcfg-unit-price-row">
+              <label style="font-size:11px;color:#64748b">Rate per use (₹)</label>
+              <input type="number" id="pcfg-unit-price" min="0" step="0.01" placeholder="e.g. 800">
+            </div>
+            <div class="field hidden" style="margin:0;min-width:130px" id="pcfg-discount-row">
+              <label style="font-size:11px;color:#64748b">Discount ceiling (₹)</label>
+              <input type="number" id="pcfg-discount-value" min="0" step="0.01" placeholder="e.g. 500">
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn-primary" onclick="pcfgSaveService()">Save</button>
+              <button class="btn-secondary" onclick="pcfgToggleAddService()">Cancel</button>
             </div>
           </div>
         </div>
 
-        <!-- Group add form -->
-        <div id="po-add-group-form" class="hidden">
-          <div style="border-top:1px solid #334155;padding-top:16px">
-            <div class="field" style="max-width:360px">
-              <label>Select Outlet Group</label>
-              <select id="po-group-select" onchange="poLoadGroupTemplate()"><option value="">— select group —</option></select>
-            </div>
-            <div id="po-group-price-table" class="hidden" style="margin-top:12px"></div>
-            <div style="display:flex;gap:8px;margin-top:12px">
-              <button class="btn-primary" id="btn-po-save-group" onclick="poSaveGroup()" style="display:none">Save Group Mapping</button>
-              <button class="btn-secondary" onclick="poHideAddForms()">Cancel</button>
-            </div>
-          </div>
+        <div id="pcfg-services-list">
+          <p style="color:#64748b;font-size:13px">No services yet. Add at least one service before mapping outlets.</p>
         </div>
       </div>
 
-      <!-- Mapped outlets -->
+      <!-- Outlets matrix -->
       <div class="card">
-        <div class="card-title" style="margin-bottom:16px">Mapped Outlets <span id="po-mapped-count" style="font-size:12px;font-weight:400;color:#64748b"></span></div>
-        <div id="po-mapped-list" class="list-body">Loading…</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+          <div>
+            <div class="card-title" style="margin-bottom:2px">Outlets &amp; Pricing</div>
+            <div style="font-size:12px;color:#64748b">Each column is a service. Click a price to edit it inline. Dash (—) means outlet doesn't offer that service.</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input id="pcfg-outlet-search" placeholder="Search outlets…" oninput="renderPcfgMatrix()"
+              style="padding:5px 10px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:12px;width:180px">
+            <button class="btn-secondary" id="btn-pcfg-map-outlets" onclick="pcfgOpenAddModal()">+ Map Outlets</button>
+          </div>
+        </div>
+        <div id="pcfg-outlet-matrix" style="overflow-x:auto">
+          <p style="color:#64748b;font-size:13px">Add services first, then map outlets.</p>
+        </div>
       </div>
     </section>
 
@@ -480,90 +558,6 @@
       </div>
     </section>
 
-    <!-- ── CONFIGURE ───────────────────────────────────────── -->
-    <section id="section-configure" class="section">
-      <div class="page-header">
-        <h1>Configure Program</h1>
-        <p>Map outlets with pricing, assign services, and set restriction level.</p>
-      </div>
-
-      <div class="card" style="margin-bottom:20px">
-        <div class="card-title">Select Program</div>
-        <div class="field" style="max-width:380px">
-          <select id="cfg-program-select"><option value="">— select program —</option></select>
-        </div>
-        <div id="cfg-program-info" class="prog-info hidden"></div>
-      </div>
-
-      <div id="cfg-body" class="hidden">
-        <div class="grid-2">
-
-          <!-- Outlets & Pricing -->
-          <div class="card">
-            <div class="card-title">Mapped Outlets &amp; Pricing</div>
-            <div id="cfg-outlets-list" class="list-body"></div>
-            <div class="divider"></div>
-            <div class="card-title" style="margin-top:8px">Add Outlet</div>
-            <form id="form-cfg-outlet">
-              <div class="field">
-                <select name="outlet_id"><option value="">— select outlet —</option></select>
-              </div>
-              <div class="field">
-                <input name="price" type="number" placeholder="Price (₹)" min="0" step="0.01">
-              </div>
-              <button type="submit" class="btn-primary">Map Outlet</button>
-            </form>
-          </div>
-
-          <!-- Services & Restriction -->
-          <div>
-            <div class="card" style="margin-bottom:16px">
-              <div class="card-title">Mapped Services</div>
-              <div id="cfg-services-list" class="list-body"></div>
-              <div class="divider"></div>
-              <form id="form-cfg-service">
-                <div class="field">
-                  <select name="service_id"><option value="">— select service —</option></select>
-                </div>
-                <div class="field">
-                  <label style="font-size:12px;color:#94a3b8">Billing Model</label>
-                  <select name="billing_model" id="cfg-billing-model" onchange="cfgToggleBillingFields()">
-                    <option value="issuance">Issuance — bill on voucher creation</option>
-                    <option value="redemption">Redemption — bill on redemption</option>
-                    <option value="discount">Discount — bill actual discount used</option>
-                  </select>
-                </div>
-                <div class="field" id="cfg-unit-price-row">
-                  <label style="font-size:12px;color:#94a3b8">Billing Rate per Use (₹) *</label>
-                  <input name="unit_price" type="number" min="0" step="0.01" placeholder="e.g. 800">
-                </div>
-                <div class="field hidden" id="cfg-discount-value-row">
-                  <label style="font-size:12px;color:#94a3b8">Discount Ceiling (₹) *</label>
-                  <input name="discount_value" type="number" min="0" step="0.01" placeholder="e.g. 500">
-                </div>
-                <button type="submit" class="btn-primary">Map Service</button>
-              </form>
-            </div>
-
-            <div class="card">
-              <div class="card-title">Restriction Level</div>
-              <p class="sub-text">Controls how vouchers created under this program are scoped.</p>
-              <form id="form-cfg-restriction">
-                <div class="field">
-                  <select name="restriction_level" id="cfg-restriction-select">
-                    <option value="program">Program — valid at all program outlets</option>
-                    <option value="site">Site — valid at all outlets at one airport</option>
-                    <option value="outlet">Outlet — valid at one specific outlet</option>
-                  </select>
-                </div>
-                <button type="submit" class="btn-primary">Update Restriction Level</button>
-              </form>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </section>
 
     <!-- ── CREATE VOUCHER ──────────────────────────────────── -->
     <section id="section-voucher" class="section">
@@ -949,6 +943,64 @@
     </section>
 
   </main>
+</div>
+
+<!-- ── Unified Map Outlets Modal ──────────────────────────────────── -->
+<div id="pcfg-add-modal" class="modal-overlay hidden">
+  <div class="modal" style="width:min(960px,96vw);height:80vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Map Outlets to Program</div>
+        <div style="font-size:12px;color:#64748b;margin-top:2px">Select outlets or groups · set a default price per service · override per outlet as needed</div>
+      </div>
+      <button class="modal-close" onclick="pcfgCloseAddModal()">✕</button>
+    </div>
+
+    <!-- Two-column body -->
+    <div style="display:flex;flex:1;overflow:hidden;min-height:0">
+
+      <!-- LEFT: picker -->
+      <div style="width:300px;flex-shrink:0;border-right:1px solid #334155;display:flex;flex-direction:column;overflow:hidden">
+        <!-- Filters -->
+        <div style="padding:12px;border-bottom:1px solid #1e293b;flex-shrink:0">
+          <input id="pcfg-add-search" placeholder="Search…" oninput="pcfgRenderPicker()"
+            style="width:100%;box-sizing:border-box;padding:6px 10px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:12px;margin-bottom:8px">
+          <div style="display:flex;gap:6px">
+            <select id="pcfg-add-site" onchange="pcfgRenderPicker()"
+              style="flex:1;padding:5px 8px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:12px">
+              <option value="">All Sites</option>
+            </select>
+            <select id="pcfg-add-vendor" onchange="pcfgRenderPicker()"
+              style="flex:1;padding:5px 8px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:12px">
+              <option value="">All Vendors</option>
+            </select>
+          </div>
+        </div>
+        <!-- List -->
+        <div id="pcfg-picker-list" style="flex:1;overflow-y:auto"></div>
+        <!-- Count footer -->
+        <div id="pcfg-picker-count" style="padding:9px 12px;border-top:1px solid #1e293b;font-size:12px;color:#64748b;flex-shrink:0">
+          0 outlets selected
+        </div>
+      </div>
+
+      <!-- RIGHT: pricing grid -->
+      <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:10px 16px;border-bottom:1px solid #1e293b;font-size:12px;color:#64748b;flex-shrink:0">
+          Type a <strong style="color:#6366f1">default price</strong> per service column — it auto-fills all outlets. Override any cell individually.
+        </div>
+        <div id="pcfg-pricing-grid" style="flex:1;overflow:auto;padding:14px 16px">
+          <p style="color:#64748b;font-size:13px;margin-top:24px;text-align:center">← Select outlets on the left to set pricing.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="pcfgCloseAddModal()">Cancel</button>
+      <button class="btn-primary" id="btn-pcfg-add-save" onclick="pcfgSaveAddModal()" style="display:none">Save Mappings</button>
+    </div>
+  </div>
 </div>
 
 <!-- ── Generic Edit Modal ────────────────────────────────────────── -->

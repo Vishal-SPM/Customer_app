@@ -201,18 +201,19 @@ router.post('/groups', requirePermission('programs:edit'), async (req, res) => {
   }
 });
 
-// PATCH /api/programs/:program_id/outlets/:outlet_id/services/:service_id — edit price
+// PATCH /api/programs/:program_id/outlets/:outlet_id/services/:service_id — upsert price
 router.patch('/:outlet_id/services/:service_id', requirePermission('programs:edit'), async (req, res) => {
   const { price } = req.body;
   if (price === null || price === undefined || price === '') {
     return res.status(400).json({ error: 'price is required' });
   }
   const { rows } = await pool.query(
-    `UPDATE program_outlet_services SET price=$1
-     WHERE program_id=$2 AND outlet_id=$3 AND service_id=$4 RETURNING *`,
-    [price, req.params.program_id, req.params.outlet_id, req.params.service_id]
+    `INSERT INTO program_outlet_services (program_id, outlet_id, service_id, price)
+     VALUES ($1,$2,$3,$4)
+     ON CONFLICT (program_id, outlet_id, service_id) DO UPDATE SET price = EXCLUDED.price
+     RETURNING *`,
+    [req.params.program_id, req.params.outlet_id, req.params.service_id, price]
   );
-  if (!rows.length) return res.status(404).json({ error: 'Mapping not found' });
   res.json(rows[0]);
 });
 

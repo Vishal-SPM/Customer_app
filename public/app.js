@@ -7,14 +7,9 @@ function redirectLogin() { window.location.href = '/login.html'; }
 let USER = null;
 const S = {
   clients: [], sites: [], services: [], outlets: [], programs: [],
-  vendors: [], outletGroups: [], currentProgram: null,
+  vendors: [], outletGroups: [],
   activeGroupId: null,        // for outlet-group-detail section
-  activeProgramForOutlets: null, // for program-outlets section
-  // transient state for outlet create form
-  pendingOutletServices: [],
-  // transient state for program-outlet pricing forms
-  poOutletTemplate: null,
-  poGroupTemplate: null,
+  pendingOutletServices: [],  // transient state for outlet create form
 };
 
 /* ── Permission helper ────────────────────────────────────────────────── */
@@ -75,9 +70,8 @@ async function onSectionEnter(name) {
   if (name === 'outlets')          { await loadOutlets(); populateSelect('#form-outlet select[name=site_id]', S.sites, 'id', s => `${s.name} (${s.iata_code})`); populateSelect('#form-outlet select[name=vendor_id]', S.vendors, 'id', v => v.name, true); initOutletServiceBuilder(); const srch = document.getElementById('outlet-search'); if (srch && !srch._bound) { srch._bound = true; srch.addEventListener('input', renderFilteredOutlets); } }
   if (name === 'outlet-groups')    { await loadOutletGroups(); }
   if (name === 'outlet-group-detail') { await loadOutletGroupDetail(); }
-  if (name === 'program-outlets')  { await loadProgramOutlets(); }
+  if (name === 'program-configure') { await loadProgramConfigure(); }
   if (name === 'programs')         { await loadPrograms(); populateSelect('select[name=client_id]', S.clients, 'id', c => c.name); }
-  if (name === 'configure')        { await loadAll(); populateCfgSelects(); }
   if (name === 'voucher')          { await loadPrograms(); populateSelect('#vch-program', S.programs, 'id', p => `${p.name} [${p.code_prefix}]`); }
   if (name === 'redemption')       { await loadVendors(); populateRedemptionVendors(); }
   if (name === 'users')            { await Promise.all([loadUsers(), loadPrograms()]); renderProgramChecks('user-program-checks'); }
@@ -99,7 +93,6 @@ function applyPermissionGating() {
     'outlets':          'outlets:view',
     'outlet-groups':    'outlets:view',
     'programs':         'programs:view',
-    'configure':        'programs:view',
     'voucher':          'vouchers:create',
     'reports-summary':  'reports:view',
     'reports-history':  'reports:view',
@@ -131,10 +124,6 @@ function applyPermissionGating() {
     const el = document.getElementById(cardId);
     if (el) el.style.display = can(perm) ? '' : 'none';
   }
-
-  // Configure section — only if programs:edit
-  const cfgForms = document.querySelectorAll('#form-cfg-outlet, #form-cfg-service, #form-cfg-restriction');
-  cfgForms.forEach(f => { f.style.display = can('programs:edit') ? '' : 'none'; });
 
   // Show user info in sidebar
   const userEl = document.getElementById('sidebar-user');
@@ -426,7 +415,7 @@ function renderProgram(p) {
       <div class="api-key-box">${esc(p.api_key)} <button onclick="copyToClipboard('${esc(p.api_key)}')" title="Copy API key" style="background:none;border:none;color:#6366f1;cursor:pointer;font-size:13px;padding:0 4px;line-height:1">⧉</button></div>
     </div>
     <div style="display:flex;gap:6px;align-items:center">
-      <button class="po-edit-price" onclick="openProgramOutlets('${p.id}','${esc(p.name)}')">Outlet Pricing</button>
+      <button class="po-edit-price" onclick="openProgramConfigure('${p.id}')">Configure</button>
       ${editBtn('program', p.id, { name: p.name, validity_days: p.validity_days, restriction_level: p.restriction_level })}
     </div>
   </div>`;
@@ -506,79 +495,572 @@ function populateServiceChecks() {
     : 'No services yet — add from Services tab';
 }
 
-/* ── Configure section ────────────────────────────────────────────── */
-function populateCfgSelects() {
-  const progSel = document.getElementById('cfg-program-select');
-  progSel.innerHTML = '<option value="">— select program —</option>' +
-    S.programs.map(p => `<option value="${p.id}">${esc(p.name)} [${p.code_prefix}]</option>`).join('');
+/* ── Program Configure (unified) ─────────────────────────────────── */
+const PCFG = {
+  programId: null,
+  program: null,
+  services: [],
+  outlets: [],
+  outletTemplate: null,   // {outlet_id, outlet_name, services:[{service_id,service_name,walking_price}]}
+  groupTemplate: null,    // [{services, outlets, outlet_ids}]
+};
 
-  populateSelect('#form-cfg-outlet select[name=outlet_id]', S.outlets, 'id', o => `${o.name} (${o.iata_code||''})`);
-  populateSelect('#form-cfg-service select[name=service_id]', S.services, 'id', sv => sv.name);
+function openProgramConfigure(programId) {
+  PCFG.programId = programId;
+  PCFG_ADD.templateCache = {}; // clear cache when switching programs
+  showSection('program-configure');
 }
 
-async function loadCfgProgram(id) {
-  if (!id) { document.getElementById('cfg-body').classList.add('hidden'); document.getElementById('cfg-program-info').classList.add('hidden'); return; }
-  const [prog, outlets, services] = await Promise.all([
-    GET(`/api/programs/${id}`),
-    GET(`/api/programs/${id}/outlets`),
-    GET(`/api/programs/${id}/services`)
+async function loadProgramConfigure() {
+  if (!PCFG.programId) return;
+  const pid = PCFG.programId;
+  await loadAll();
+
+  const [prog, services, outlets] = await Promise.all([
+    GET(`/api/programs/${pid}`),
+    GET(`/api/programs/${pid}/services`),
+    GET(`/api/programs/${pid}/outlets`),
   ]);
-  S.currentProgram = prog;
 
-  const info = document.getElementById('cfg-program-info');
-  info.classList.remove('hidden');
-  info.innerHTML = `
-    <div class="pi-name">${esc(prog.name)}</div>
-    <div class="pi-row">
-      <div class="pi-item"><strong>Client:</strong> ${esc(prog.client_name)}</div>
-      <div class="pi-item"><strong>Prefix:</strong> ${esc(prog.code_prefix)}</div>
-      <div class="pi-item"><strong>Validity:</strong> ${prog.validity_days} days</div>
-      <div class="pi-item"><strong>Restriction:</strong> ${esc(prog.restriction_level)}</div>
-    </div>`;
+  PCFG.program  = prog;
+  PCFG.services = services || [];
+  PCFG.outlets  = outlets  || [];
 
+  document.getElementById('pcfg-prog-name').textContent = prog.name;
+  document.getElementById('pcfg-prog-meta').textContent = prog.client_name;
+  document.getElementById('pcfg-code-prefix').textContent = prog.code_prefix;
+  document.getElementById('pcfg-validity').textContent = `${prog.validity_days} days`;
+  document.getElementById('pcfg-client').textContent = prog.client_name;
+  document.getElementById('pcfg-restriction').value = prog.restriction_level;
+
+  // Populate service selector with services not yet mapped
+  const mappedIds = new Set(PCFG.services.map(s => s.id));
+  const avail = S.services.filter(s => !mappedIds.has(s.id));
+  const sel = document.getElementById('pcfg-svc-select');
+  sel.innerHTML = '<option value="">— select service —</option>' +
+    avail.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+
+  renderPcfgServices();
+  renderPcfgMatrix();
+}
+
+function renderPcfgServices() {
+  const el = document.getElementById('pcfg-services-list');
+  if (!PCFG.services.length) {
+    el.innerHTML = '<p style="color:#64748b;font-size:13px;padding:4px 0">No services yet. Click "+ Add Service" above.</p>';
+    return;
+  }
+  const canEdit = can('programs:edit');
+  const tagColor = { issuance: '#6366f1', redemption: '#22c55e', discount: '#f59e0b' };
+  const modelLabel = { issuance: 'Issuance', redemption: 'Redemption', discount: 'Discount' };
+
+  el.innerHTML = `<table class="pcfg-svc-table">
+    <thead><tr>
+      <th>Service</th><th>Billing Model</th><th>Rate / Ceiling</th>
+      ${canEdit ? '<th></th><th></th>' : ''}
+    </tr></thead>
+    <tbody>
+    ${PCFG.services.map(sv => {
+      const tc = tagColor[sv.billing_model] || '#64748b';
+      const rateStr = sv.billing_model === 'discount'
+        ? `₹${sv.discount_value} ceiling`
+        : `₹${sv.unit_price} / use`;
+      return `<tr>
+        <td style="font-weight:600;color:#e2e8f0">${esc(sv.name)}</td>
+        <td><span class="pcfg-billing-tag" style="background:${tc}22;color:${tc};border:1px solid ${tc}44">${modelLabel[sv.billing_model]||sv.billing_model}</span></td>
+        <td style="color:#94a3b8">${rateStr}</td>
+        ${canEdit ? `<td><button class="po-edit-price" onclick="pcfgEditService('${sv.id}','${sv.billing_model}',${sv.unit_price},${sv.discount_value ?? 'null'})">Edit</button></td>` : ''}
+        ${canEdit ? `<td><button onclick="pcfgRemoveService('${sv.id}')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:18px;padding:0;line-height:1" title="Remove">×</button></td>` : ''}
+      </tr>`;
+    }).join('')}
+    </tbody>
+  </table>`;
+}
+
+function renderPcfgMatrix() {
+  const el = document.getElementById('pcfg-outlet-matrix');
+  const svcs = PCFG.services;
+  const outlets = PCFG.outlets;
   const canEdit = can('programs:edit');
 
-  document.getElementById('cfg-outlets-list').innerHTML = outlets.length
-    ? outlets.map(o => `<div class="row-item">
-        <div class="row-main"><div class="row-name">${esc(o.name)}</div><div class="row-sub">₹${o.program_price} · ${esc(o.iata_code||'')} ${esc(o.terminal_name||'')}</div></div>
-        ${canEdit ? `<button class="btn-danger" onclick="removeProgramOutlet('${id}','${o.id}')">Remove</button>` : ''}
-      </div>`).join('')
-    : '<p style="color:#94a3b8;font-style:italic">No outlets mapped yet</p>';
+  if (!svcs.length) {
+    el.innerHTML = '<p style="color:#64748b;font-size:13px">Add services first, then map outlets.</p>';
+    return;
+  }
+  if (!outlets.length) {
+    el.innerHTML = '<p style="color:#64748b;font-size:13px">No outlets mapped yet. Use "+ Add Outlet" or "+ Add Group" above.</p>';
+    return;
+  }
 
-  const billingTagColor = { issuance: '#6366f1', redemption: '#22c55e', discount: '#f59e0b' };
-  document.getElementById('cfg-services-list').innerHTML = services.length
-    ? services.map(sv => {
-        const model    = sv.billing_model || 'issuance';
-        const tagColor = billingTagColor[model] || '#64748b';
-        const detail   = model === 'discount'
-          ? `Ceiling ₹${sv.discount_value}`
-          : `₹${sv.unit_price}/use`;
-        return `<div class="row-item">
-          <div class="row-main">
-            <div class="row-name">${esc(sv.name)}
-              <span class="tag" style="background:${tagColor}22;color:${tagColor};border-color:${tagColor}55">${model}</span>
-              <span style="font-size:11px;color:#64748b">${detail}</span>
-            </div>
-          </div>
-          ${canEdit ? `<button class="btn-danger" onclick="removeProgramService('${id}','${sv.id}')">Remove</button>` : ''}
-        </div>`;
-      }).join('')
-    : '<p style="color:#94a3b8;font-style:italic">No services mapped yet</p>';
+  // Build price lookup: outletId → serviceId → price
+  const priceMap = {};
+  for (const o of outlets) {
+    priceMap[o.outlet_id] = {};
+    for (const s of (o.services || [])) {
+      priceMap[o.outlet_id][s.service_id] = s.program_price;
+    }
+  }
 
-  document.getElementById('cfg-restriction-select').value = prog.restriction_level;
-  document.getElementById('cfg-body').classList.remove('hidden');
+  const q = (document.getElementById('pcfg-outlet-search')?.value || '').toLowerCase();
+  const filtered = outlets.filter(o => !q ||
+    (o.outlet_name||'').toLowerCase().includes(q) ||
+    (o.iata_code||'').toLowerCase().includes(q) ||
+    (o.vendor_name||'').toLowerCase().includes(q)
+  );
+
+  const svcHeaders = svcs.map(sv =>
+    `<th class="svc-col">${esc(sv.name)}</th>`
+  ).join('');
+
+  const rows = filtered.map(o => {
+    const cells = svcs.map(sv => {
+      const price = priceMap[o.outlet_id]?.[sv.id];
+      if (price === undefined || price === null) {
+        return `<td class="svc-cell"><span class="pcfg-no-svc" title="Outlet does not offer this service">—</span></td>`;
+      }
+      return `<td class="svc-cell">${
+        canEdit
+          ? `<span class="pcfg-price-cell" onclick="pcfgInlineEditPrice(this,'${o.outlet_id}','${sv.id}',${price})">₹${price}</span>`
+          : `<span style="color:#22c55e;font-weight:600">₹${price}</span>`
+      }</td>`;
+    }).join('');
+
+    return `<tr>
+      <td>
+        <div style="font-size:13px;font-weight:600;color:#e2e8f0">${esc(o.outlet_name)}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px">${esc(o.iata_code||'')}${o.vendor_name ? ' · ' + esc(o.vendor_name) : ''}</div>
+      </td>
+      ${cells}
+      ${canEdit ? `<td><button onclick="pcfgRemoveOutlet('${o.outlet_id}')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:18px;padding:0;line-height:1" title="Remove">×</button></td>` : ''}
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `<table class="pcfg-matrix">
+    <thead><tr>
+      <th>Outlet</th>${svcHeaders}${canEdit ? '<th></th>' : ''}
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
 }
 
-window.removeProgramOutlet = async (progId, outletId) => {
-  if (!confirm('Remove this outlet from the program?')) return;
-  await DEL(`/api/programs/${progId}/outlets/${outletId}`);
-  toast('Outlet removed'); loadCfgProgram(progId);
+/* ── PCFG: restriction ── */
+async function pcfgUpdateRestriction() {
+  const pid = PCFG.programId;
+  const val = document.getElementById('pcfg-restriction').value;
+  if (!pid) return;
+  await PATCH(`/api/programs/${pid}`, { restriction_level: val });
+  toast('Restriction level updated');
+}
+
+/* ── PCFG: copy API key ── */
+function pcfgCopyApiKey() {
+  if (PCFG.program?.api_key) copyToClipboard(PCFG.program.api_key);
+}
+
+/* ── PCFG: services ── */
+function pcfgToggleAddService() {
+  const form = document.getElementById('pcfg-add-svc-form');
+  form.classList.toggle('hidden');
+  if (!form.classList.contains('hidden')) {
+    // Reset form to add mode
+    document.getElementById('pcfg-svc-select').disabled = false;
+    document.getElementById('pcfg-svc-billing').value = 'issuance';
+    document.getElementById('pcfg-unit-price').value = '';
+    document.getElementById('pcfg-discount-value').value = '';
+    pcfgToggleBillingFields();
+  }
+}
+
+function pcfgToggleBillingFields() {
+  const model = document.getElementById('pcfg-svc-billing').value;
+  document.getElementById('pcfg-unit-price-row').classList.toggle('hidden', model === 'discount');
+  document.getElementById('pcfg-discount-row').classList.toggle('hidden', model !== 'discount');
+}
+
+function pcfgEditService(svcId, model, unitPrice, discountValue) {
+  const form = document.getElementById('pcfg-add-svc-form');
+  form.classList.remove('hidden');
+  const sel = document.getElementById('pcfg-svc-select');
+  // Add the service back to the selector if not there
+  const already = Array.from(sel.options).find(o => o.value === svcId);
+  if (!already) {
+    const sv = S.services.find(s => s.id === svcId);
+    if (sv) {
+      const opt = document.createElement('option');
+      opt.value = sv.id; opt.textContent = sv.name;
+      sel.appendChild(opt);
+    }
+  }
+  sel.value = svcId;
+  sel.disabled = true; // can't change service in edit mode
+  document.getElementById('pcfg-svc-billing').value = model;
+  document.getElementById('pcfg-unit-price').value = unitPrice ?? '';
+  document.getElementById('pcfg-discount-value').value = discountValue ?? '';
+  pcfgToggleBillingFields();
+}
+
+async function pcfgSaveService() {
+  const pid   = PCFG.programId;
+  const svcId = document.getElementById('pcfg-svc-select').value;
+  const model = document.getElementById('pcfg-svc-billing').value;
+  const unitP = document.getElementById('pcfg-unit-price').value;
+  const discV = document.getElementById('pcfg-discount-value').value;
+
+  if (!svcId) return toast('Select a service', 'error');
+  if (model !== 'discount' && (unitP === '' || parseFloat(unitP) < 0)) return toast('Enter a billing rate (0 for complimentary)', 'error');
+  if (model === 'discount' && (!discV || parseFloat(discV) <= 0)) return toast('Enter a discount ceiling greater than 0', 'error');
+
+  await POST(`/api/programs/${pid}/services`, {
+    service_id:     svcId,
+    billing_model:  model,
+    unit_price:     parseFloat(unitP) || 0,
+    discount_value: model === 'discount' ? parseFloat(discV) : null,
+  });
+  toast('Service saved');
+  document.getElementById('pcfg-add-svc-form').classList.add('hidden');
+  document.getElementById('pcfg-svc-select').disabled = false;
+  await loadProgramConfigure();
+}
+
+window.pcfgRemoveService = async (svcId) => {
+  if (!confirm('Remove this service from the program? Outlet pricing for this service will also be removed.')) return;
+  await DEL(`/api/programs/${PCFG.programId}/services/${svcId}`);
+  toast('Service removed');
+  await loadProgramConfigure();
 };
-window.removeProgramService = async (progId, svcId) => {
-  if (!confirm('Remove this service from the program?')) return;
-  await DEL(`/api/programs/${progId}/services/${svcId}`);
-  toast('Service removed'); loadCfgProgram(progId);
+
+/* ── PCFG: inline price editing ── */
+window.pcfgInlineEditPrice = (spanEl, outletId, svcId, currentPrice) => {
+  if (spanEl.dataset.editing) return;
+  spanEl.dataset.editing = '1';
+  spanEl.style.display = 'none';
+
+  const input = document.createElement('input');
+  input.type = 'number'; input.min = '0'; input.step = '0.01';
+  input.value = currentPrice;
+  input.className = 'pcfg-price-input';
+
+  const save = async () => {
+    const p = parseFloat(input.value);
+    if (isNaN(p) || p < 0) { cancel(); return; }
+    input.disabled = true;
+    await PATCH(`/api/programs/${PCFG.programId}/outlets/${outletId}/services/${svcId}`, { price: p });
+    toast('Price updated');
+    await loadProgramConfigure();
+  };
+  const cancel = () => {
+    delete spanEl.dataset.editing;
+    spanEl.style.display = '';
+    input.remove();
+  };
+
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.removeEventListener('blur', save); cancel(); }
+  });
+
+  spanEl.parentNode.insertBefore(input, spanEl.nextSibling);
+  input.focus(); input.select();
 };
+
+window.pcfgRemoveOutlet = async (outletId) => {
+  if (!confirm('Remove this outlet from the program? All per-service pricing for it will be deleted.')) return;
+  await DEL(`/api/programs/${PCFG.programId}/outlets/${outletId}`);
+  toast('Outlet removed');
+  await loadProgramConfigure();
+};
+
+/* ── PCFG: Unified Add Outlets modal ────────────────────────────── */
+const PCFG_ADD = {
+  individualSelections: new Set(),  // outlet IDs directly checked
+  checkedGroups: new Set(),         // group IDs checked
+  groupOutlets: new Map(),          // groupId → [{id, name, ...}]
+  selectedOutletIds: new Set(),     // computed: union of individual + group outlets
+  templateCache: {},                // outlet_id → {services, outlet_name}
+};
+
+function pcfgAddRecompute() {
+  PCFG_ADD.selectedOutletIds = new Set(PCFG_ADD.individualSelections);
+  for (const gid of PCFG_ADD.checkedGroups) {
+    for (const o of (PCFG_ADD.groupOutlets.get(gid) || [])) {
+      PCFG_ADD.selectedOutletIds.add(o.id);
+    }
+  }
+}
+
+async function pcfgOpenAddModal() {
+  if (!PCFG.services.length) return toast('Add at least one service to this program first', 'error');
+
+  PCFG_ADD.individualSelections.clear();
+  PCFG_ADD.checkedGroups.clear();
+  PCFG_ADD.selectedOutletIds.clear();
+  // keep templateCache across opens
+
+  const siteEl = document.getElementById('pcfg-add-site');
+  const vendorEl = document.getElementById('pcfg-add-vendor');
+  siteEl.innerHTML = '<option value="">All Sites</option>' +
+    S.sites.map(s => `<option value="${s.id}">${esc(s.name)} (${s.iata_code})</option>`).join('');
+  vendorEl.innerHTML = '<option value="">All Vendors</option>' +
+    S.vendors.map(v => `<option value="${v.id}">${esc(v.name)}</option>`).join('');
+  document.getElementById('pcfg-add-search').value = '';
+  document.getElementById('btn-pcfg-add-save').style.display = 'none';
+
+  pcfgRenderPicker();
+  pcfgRenderPricingGrid();
+  document.getElementById('pcfg-add-modal').classList.remove('hidden');
+}
+
+function pcfgCloseAddModal() {
+  document.getElementById('pcfg-add-modal').classList.add('hidden');
+}
+
+function pcfgRenderPicker() {
+  const q        = (document.getElementById('pcfg-add-search')?.value || '').toLowerCase();
+  const siteId   = document.getElementById('pcfg-add-site')?.value;
+  const vendorId = document.getElementById('pcfg-add-vendor')?.value;
+  const mappedIds = new Set(PCFG.outlets.map(o => o.outlet_id));
+  const el = document.getElementById('pcfg-picker-list');
+  let html = '';
+
+  // ── Groups section ──
+  const filteredGroups = S.outletGroups.filter(g => !q || g.name.toLowerCase().includes(q));
+  if (filteredGroups.length) {
+    html += `<div style="padding:8px 12px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#475569">Outlet Groups</div>`;
+    html += filteredGroups.map(g => {
+      const checked = PCFG_ADD.checkedGroups.has(g.id);
+      return `<div class="pcfg-outlet-row${checked ? ' selected' : ''}" onclick="pcfgToggleGroup('${g.id}')">
+        <input type="checkbox" ${checked ? 'checked' : ''} onclick="event.stopPropagation();pcfgToggleGroup('${g.id}')"
+          style="accent-color:#6366f1;width:15px;height:15px;cursor:pointer;flex-shrink:0">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600;color:#e2e8f0">⊞ ${esc(g.name)}</div>
+          <div style="font-size:11px;color:#64748b;margin-top:1px">${g.outlet_count} outlet(s)</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Individual outlets ──
+  const filteredOutlets = S.outlets.filter(o =>
+    (!q      || o.name.toLowerCase().includes(q) || (o.iata_code||'').toLowerCase().includes(q) || (o.vendor_name||'').toLowerCase().includes(q)) &&
+    (!siteId  || o.site_id === siteId) &&
+    (!vendorId || o.vendor_id === vendorId)
+  );
+  if (filteredOutlets.length) {
+    html += `<div style="padding:8px 12px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#475569;margin-top:4px">Individual Outlets</div>`;
+    html += filteredOutlets.map(o => {
+      const already  = mappedIds.has(o.id);
+      const selected = PCFG_ADD.selectedOutletIds.has(o.id);
+      const viaGroup = !PCFG_ADD.individualSelections.has(o.id) && selected;
+
+      if (already) {
+        return `<div class="pcfg-outlet-row" style="opacity:.4;cursor:not-allowed">
+          <input type="checkbox" disabled style="width:15px;height:15px;flex-shrink:0">
+          <div style="flex:1">
+            <div style="font-size:13px;color:#94a3b8">${esc(o.name)}</div>
+            <div style="font-size:11px;color:#64748b;margin-top:1px">${esc(o.iata_code||'')} · already mapped</div>
+          </div>
+        </div>`;
+      }
+      return `<div class="pcfg-outlet-row${selected ? ' selected' : ''}" onclick="pcfgToggleOutlet('${o.id}')">
+        <input type="checkbox" ${selected ? 'checked' : ''} onclick="event.stopPropagation();pcfgToggleOutlet('${o.id}')"
+          style="accent-color:#6366f1;width:15px;height:15px;cursor:pointer;flex-shrink:0">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600;color:#e2e8f0">${esc(o.name)}${viaGroup ? ' <span style="font-size:10px;color:#6366f1;font-weight:400">(via group)</span>' : ''}</div>
+          <div style="font-size:11px;color:#64748b;margin-top:1px">${esc(o.iata_code||'')}${o.site_name ? ' · '+esc(o.site_name) : ''}${o.vendor_name ? ' · '+esc(o.vendor_name) : ''}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  if (!filteredGroups.length && !filteredOutlets.length) {
+    html = '<p style="padding:16px;color:#64748b;font-size:13px">No outlets match filters.</p>';
+  }
+  el.innerHTML = html;
+
+  const n = PCFG_ADD.selectedOutletIds.size;
+  document.getElementById('pcfg-picker-count').textContent = `${n} outlet${n !== 1 ? 's' : ''} selected`;
+}
+
+async function pcfgToggleOutlet(outletId) {
+  const mappedIds = new Set(PCFG.outlets.map(o => o.outlet_id));
+  if (mappedIds.has(outletId)) return;
+
+  if (PCFG_ADD.individualSelections.has(outletId)) {
+    PCFG_ADD.individualSelections.delete(outletId);
+    pcfgAddRecompute();
+  } else {
+    PCFG_ADD.individualSelections.add(outletId);
+    pcfgAddRecompute();
+    if (!PCFG_ADD.templateCache[outletId]) {
+      await pcfgFetchTemplate(outletId);
+    }
+  }
+  pcfgRenderPicker();
+  pcfgRenderPricingGrid();
+}
+
+async function pcfgToggleGroup(groupId) {
+  if (PCFG_ADD.checkedGroups.has(groupId)) {
+    PCFG_ADD.checkedGroups.delete(groupId);
+    pcfgAddRecompute();
+    pcfgRenderPicker();
+    pcfgRenderPricingGrid();
+  } else {
+    PCFG_ADD.checkedGroups.add(groupId);
+    if (!PCFG_ADD.groupOutlets.has(groupId)) {
+      const members = await GET(`/api/outlet-groups/${groupId}/outlets`);
+      PCFG_ADD.groupOutlets.set(groupId, members || []);
+    }
+    pcfgAddRecompute();
+    const fetches = [];
+    for (const oid of PCFG_ADD.selectedOutletIds) {
+      if (!PCFG_ADD.templateCache[oid]) fetches.push(pcfgFetchTemplate(oid));
+    }
+    await Promise.all(fetches);
+    pcfgRenderPicker();
+    pcfgRenderPricingGrid();
+  }
+}
+
+async function pcfgFetchTemplate(outletId) {
+  if (PCFG_ADD.templateCache[outletId]) return;
+  const tpl = await GET(`/api/programs/${PCFG.programId}/outlets/pricing-template?outlet_id=${outletId}`);
+  PCFG_ADD.templateCache[outletId] = tpl || { services: [], outlet_name: outletId };
+}
+
+function pcfgRenderPricingGrid() {
+  const el = document.getElementById('pcfg-pricing-grid');
+  const svcs = PCFG.services;
+  const n = PCFG_ADD.selectedOutletIds.size;
+
+  if (!n) {
+    el.innerHTML = '<p style="color:#64748b;font-size:13px;margin-top:24px;text-align:center">← Select outlets on the left to set pricing.</p>';
+    document.getElementById('btn-pcfg-add-save').style.display = 'none';
+    return;
+  }
+
+  // Build rows data
+  const rows = [];
+  for (const oid of PCFG_ADD.selectedOutletIds) {
+    const tpl = PCFG_ADD.templateCache[oid];
+    const info = S.outlets.find(o => o.id === oid);
+    const name = tpl?.outlet_name || info?.name || oid;
+    const iata = info?.iata_code || '';
+    if (!tpl) {
+      rows.push({ oid, name, iata, loading: true, eligibleSvcIds: new Set() });
+    } else {
+      const eligible = (tpl.services || []).filter(s => !s.already_mapped);
+      rows.push({ oid, name, iata, loading: false, eligibleSvcIds: new Set(eligible.map(s => s.service_id)) });
+    }
+  }
+
+  // Service column headers
+  const svcTh = svcs.map(sv =>
+    `<th style="text-align:center;min-width:115px;padding:8px 10px;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;background:#1e293b;border-bottom:2px solid #334155">${esc(sv.name)}</th>`
+  ).join('');
+
+  // Default row
+  const defCells = svcs.map(sv =>
+    `<td style="text-align:center;padding:6px 8px;background:#1a2744">
+      <input type="number" id="pcfg-def-${sv.id}" min="0" step="0.01" placeholder="₹ default"
+        oninput="pcfgFillDefault('${sv.id}')"
+        style="width:100px;padding:5px 8px;border-radius:6px;border:1px solid #6366f1;background:#0f172a;color:#a5b4fc;font-size:12px;text-align:center">
+    </td>`
+  ).join('');
+
+  // Outlet rows
+  const outletRows = rows.map(r => {
+    if (r.loading) {
+      return `<tr><td colspan="${svcs.length+1}" style="padding:10px 14px;color:#64748b;font-size:12px">Loading pricing for ${esc(r.name)}…</td></tr>`;
+    }
+    const cells = svcs.map(sv => {
+      if (!r.eligibleSvcIds.has(sv.id)) {
+        return `<td style="text-align:center;padding:6px 8px;color:#334155;font-size:18px;line-height:1">—</td>`;
+      }
+      return `<td style="text-align:center;padding:6px 8px">
+        <input type="number" id="pcfg-p-${r.oid}-${sv.id}" min="0" step="0.01" placeholder="₹"
+          style="width:100px;padding:5px 8px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#22c55e;font-size:13px;font-weight:600;text-align:center">
+      </td>`;
+    }).join('');
+    return `<tr>
+      <td style="padding:8px 14px;border-bottom:1px solid #0f172a;white-space:nowrap">
+        <div style="font-size:13px;font-weight:600;color:#e2e8f0">${esc(r.name)}</div>
+        ${r.iata ? `<div style="font-size:11px;color:#64748b">${r.iata}</div>` : ''}
+      </td>${cells}
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `<table style="border-collapse:collapse;font-size:13px;min-width:100%">
+    <thead><tr>
+      <th style="text-align:left;padding:8px 14px;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;background:#1e293b;border-bottom:2px solid #334155">Outlet</th>
+      ${svcTh}
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td style="padding:8px 14px;font-size:11px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:.4px;background:#1a2744;white-space:nowrap">Default →</td>
+        ${defCells}
+      </tr>
+      ${outletRows}
+    </tbody>
+  </table>`;
+
+  const btn = document.getElementById('btn-pcfg-add-save');
+  btn.style.display = '';
+  btn.textContent = `Save ${n} Outlet${n !== 1 ? 's' : ''}`;
+}
+
+function pcfgFillDefault(svcId) {
+  const val = document.getElementById(`pcfg-def-${svcId}`)?.value;
+  if (val === '' || val === null) return;
+  for (const oid of PCFG_ADD.selectedOutletIds) {
+    const inp = document.getElementById(`pcfg-p-${oid}-${svcId}`);
+    if (inp) inp.value = val;
+  }
+}
+
+async function pcfgSaveAddModal() {
+  const svcs = PCFG.services;
+  const toSave = [];
+  const errors = [];
+
+  for (const oid of PCFG_ADD.selectedOutletIds) {
+    const tpl = PCFG_ADD.templateCache[oid];
+    if (!tpl) continue;
+    const eligible = (tpl.services || []).filter(s => !s.already_mapped);
+    if (!eligible.length) continue;
+
+    const services = [];
+    let hasError = false;
+    for (const sv of eligible) {
+      const inp = document.getElementById(`pcfg-p-${oid}-${sv.service_id}`);
+      const val = inp?.value;
+      if (val === '' || val === null || val === undefined) {
+        const info = S.outlets.find(o => o.id === oid);
+        const svcName = svcs.find(s => s.id === sv.service_id)?.name || sv.service_id;
+        errors.push(`${info?.name || oid}: missing price for "${svcName}"`);
+        hasError = true; break;
+      }
+      services.push({ service_id: sv.service_id, price: parseFloat(val) });
+    }
+    if (!hasError && services.length) toSave.push({ outlet_id: oid, services });
+  }
+
+  if (errors.length) return toast(`Missing prices — ${errors[0]}${errors.length > 1 ? ` (+${errors.length-1} more)` : ''}`, 'error');
+  if (!toSave.length) return toast('No unmapped outlet-services to save', 'error');
+
+  const btn = document.getElementById('btn-pcfg-add-save');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  for (const payload of toSave) {
+    await POST(`/api/programs/${PCFG.programId}/outlets`, payload);
+  }
+
+  btn.disabled = false;
+  toast(`${toSave.length} outlet${toSave.length !== 1 ? 's' : ''} mapped to program`);
+  pcfgCloseAddModal();
+  await loadProgramConfigure();
+}
 
 /* ── Vendor actions ──────────────────────────────────────────────── */
 window.regenVendorKey = async (vendorId, name) => {
@@ -1106,191 +1588,7 @@ function ogRenderMembers(members) {
     : '<p style="color:#64748b;font-size:13px">No outlets in this group yet.</p>';
 }
 
-/* ── Program Outlet Pricing ──────────────────────────────────────── */
-async function openProgramOutlets(programId, programName) {
-  S.activeProgramForOutlets = programId;
-  document.getElementById('po-program-label').textContent = `Program: ${programName}`;
-  poHideAddForms();
-  showSection('program-outlets');
-}
 
-async function loadProgramOutlets() {
-  if (!S.activeProgramForOutlets) return;
-  const pid = S.activeProgramForOutlets;
-
-  // Populate outlet + group selectors for adding
-  const mapped  = await GET(`/api/programs/${pid}/outlets`);
-  if (!mapped) return;
-  const mappedIds = new Set(mapped.map(m => m.outlet_id));
-  const available = S.outlets.filter(o => !mappedIds.has(o.id));
-  populateSelect('#po-outlet-select', available, 'id', o => `${o.name} (${o.iata_code})`);
-  populateSelect('#po-group-select', S.outletGroups, 'id', g => `${g.name} (${g.outlet_count} outlets)`);
-
-  // Render mapped outlets
-  const count = document.getElementById('po-mapped-count');
-  count.textContent = mapped.length ? `— ${mapped.length} outlet(s)` : '';
-
-  const el = document.getElementById('po-mapped-list');
-  if (!mapped.length) { el.innerHTML = '<p style="color:#64748b;font-size:13px">No outlets mapped yet. Use the controls above to add outlets or groups.</p>'; return; }
-
-  el.innerHTML = mapped.map(o => `
-    <div class="po-outlet-block">
-      <div class="po-outlet-header">
-        <div>
-          <div class="outlet-label">${esc(o.outlet_name)}</div>
-          <div class="outlet-meta">${esc(o.iata_code||'')} · ${esc(o.site_name||'')} · ${esc(o.vendor_name||'')}</div>
-        </div>
-        <button class="btn-secondary" style="font-size:11px;padding:4px 12px;color:#ef4444;border-color:#ef4444"
-          onclick="poRemoveOutlet('${o.outlet_id}')">Remove</button>
-      </div>
-      <div class="po-service-row header">
-        <span>Service</span><span>Walk-in</span><span>Program Price</span><span></span>
-      </div>
-      ${o.services.map(s => `
-        <div class="po-service-row">
-          <span>${esc(s.service_name)}</span>
-          <span style="color:#64748b">₹${s.walking_price}</span>
-          <span style="font-weight:600;color:#22c55e">₹${s.program_price}</span>
-          <button class="po-edit-price" onclick="poEditPrice('${o.outlet_id}','${s.service_id}',${s.program_price})">Edit</button>
-        </div>`).join('')}
-    </div>`).join('');
-}
-
-function poShowAddOutlet() {
-  document.getElementById('po-add-outlet-form').classList.toggle('hidden');
-  document.getElementById('po-add-group-form').classList.add('hidden');
-}
-function poShowAddGroup() {
-  document.getElementById('po-add-group-form').classList.toggle('hidden');
-  document.getElementById('po-add-outlet-form').classList.add('hidden');
-}
-function poHideAddForms() {
-  document.getElementById('po-add-outlet-form')?.classList.add('hidden');
-  document.getElementById('po-add-group-form')?.classList.add('hidden');
-}
-
-async function poLoadOutletTemplate() {
-  const outletId = document.getElementById('po-outlet-select').value;
-  const saveBtn  = document.getElementById('btn-po-save-outlet');
-  const tableEl  = document.getElementById('po-outlet-price-table');
-  S.poOutletTemplate = null;
-  saveBtn.style.display = 'none';
-  tableEl.classList.add('hidden');
-  if (!outletId) return;
-
-  const data = await GET(`/api/programs/${S.activeProgramForOutlets}/outlets/pricing-template?outlet_id=${outletId}`);
-  if (!data) return;
-  const svcs = data.services.filter(s => !s.already_mapped);
-  if (!svcs.length) {
-    tableEl.innerHTML = '<p style="color:#f59e0b;font-size:13px">All eligible services are already mapped for this outlet.</p>';
-    tableEl.classList.remove('hidden'); return;
-  }
-
-  S.poOutletTemplate = { outlet_id: outletId, services: svcs };
-  tableEl.innerHTML = `
-    <div class="po-service-row header"><span>Service</span><span>Walk-in</span><span>Program Price *</span><span></span></div>
-    ${svcs.map(s => `
-      <div class="po-service-row">
-        <span>${esc(s.service_name)}</span>
-        <span style="color:#64748b">₹${s.walking_price}</span>
-        <input type="number" id="po-price-${s.service_id}" placeholder="Required" min="0" step="0.01" style="max-width:130px">
-        <span></span>
-      </div>`).join('')}
-    <p style="font-size:11px;color:#64748b;margin:8px 0 0">* Enter 0 for complimentary</p>`;
-  tableEl.classList.remove('hidden');
-  saveBtn.style.display = 'inline-block';
-}
-
-async function poSaveOutlet() {
-  if (!S.poOutletTemplate) return;
-  const services = S.poOutletTemplate.services.map(s => ({
-    service_id: s.service_id,
-    price: document.getElementById(`po-price-${s.service_id}`)?.value
-  }));
-  const missing = services.find(s => s.price === '' || s.price === null || s.price === undefined);
-  if (missing) { toast('Enter a price for every service (0 = free)', 'error'); return; }
-
-  const ok = await POST(`/api/programs/${S.activeProgramForOutlets}/outlets`, {
-    outlet_id: S.poOutletTemplate.outlet_id,
-    services: services.map(s => ({ ...s, price: parseFloat(s.price) }))
-  });
-  if (ok) { toast('Outlet added to program'); poHideAddForms(); S.poOutletTemplate = null; await loadProgramOutlets(); }
-}
-
-async function poLoadGroupTemplate() {
-  const groupId = document.getElementById('po-group-select').value;
-  const saveBtn = document.getElementById('btn-po-save-group');
-  const tableEl = document.getElementById('po-group-price-table');
-  S.poGroupTemplate = null;
-  saveBtn.style.display = 'none';
-  tableEl.classList.add('hidden');
-  if (!groupId) return;
-
-  const data = await GET(`/api/programs/${S.activeProgramForOutlets}/outlets/group-pricing-template?outlet_group_id=${groupId}`);
-  if (!data) return;
-  if (data.already_fully_mapped) {
-    tableEl.innerHTML = '<p style="color:#f59e0b;font-size:13px">All outlets in this group are already fully mapped.</p>';
-    tableEl.classList.remove('hidden'); return;
-  }
-
-  S.poGroupTemplate = data.clusters;
-  tableEl.innerHTML = data.clusters.map((cluster, ci) => `
-    <div class="price-cluster">
-      <div class="price-cluster-header">
-        <span class="cluster-label">Services: ${cluster.services.map(s => esc(s.service_name)).join(' + ')}</span>
-        <span class="cluster-outlets">${cluster.outlets.length} outlet(s): ${cluster.outlets.map(o => esc(o.outlet_name)).join(', ')}</span>
-      </div>
-      <div style="padding:12px 16px">
-        <div class="po-service-row header" style="padding:0 0 8px"><span>Service</span><span>Walk-in (varies)</span><span>Program Price *</span><span></span></div>
-        ${cluster.services.map(s => `
-          <div class="po-service-row" style="padding:6px 0">
-            <span>${esc(s.service_name)}</span>
-            <span style="color:#64748b">₹${s.walking_price}</span>
-            <input type="number" id="po-grp-${ci}-${s.service_id}" placeholder="Required" min="0" step="0.01" style="max-width:130px">
-            <span></span>
-          </div>`).join('')}
-        <p style="font-size:11px;color:#64748b;margin:6px 0 0">* Applies to all ${cluster.outlets.length} outlet(s) above. Edit individually after saving.</p>
-      </div>
-    </div>`).join('');
-  tableEl.classList.remove('hidden');
-  saveBtn.style.display = 'inline-block';
-}
-
-async function poSaveGroup() {
-  if (!S.poGroupTemplate) return;
-  const groupId = document.getElementById('po-group-select').value;
-
-  const clusters = S.poGroupTemplate.map((cluster, ci) => {
-    const prices = {};
-    for (const s of cluster.services) {
-      const val = document.getElementById(`po-grp-${ci}-${s.service_id}`)?.value;
-      if (val === '' || val === null || val === undefined) return null;
-      prices[s.service_id] = parseFloat(val);
-    }
-    return { outlet_ids: cluster.outlets.map(o => o.outlet_id), prices };
-  });
-
-  if (clusters.includes(null)) { toast('Enter a price for every service (0 = free)', 'error'); return; }
-
-  const ok = await POST(`/api/programs/${S.activeProgramForOutlets}/outlets/groups`, {
-    outlet_group_id: groupId, clusters
-  });
-  if (ok) { toast('Group outlets added to program'); poHideAddForms(); S.poGroupTemplate = null; await loadProgramOutlets(); }
-}
-
-async function poEditPrice(outletId, serviceId, currentPrice) {
-  const newPrice = prompt(`Update program price for this service (current: ₹${currentPrice}):`, currentPrice);
-  if (newPrice === null) return;
-  if (isNaN(parseFloat(newPrice))) { toast('Invalid price', 'error'); return; }
-  const ok = await PATCH(`/api/programs/${S.activeProgramForOutlets}/outlets/${outletId}/services/${serviceId}`, { price: parseFloat(newPrice) });
-  if (ok) { toast('Price updated'); await loadProgramOutlets(); }
-}
-
-async function poRemoveOutlet(outletId) {
-  if (!confirm('Remove this outlet from the program? All service pricing rows will be deleted.')) return;
-  await DEL(`/api/programs/${S.activeProgramForOutlets}/outlets/${outletId}`);
-  toast('Outlet removed'); await loadProgramOutlets();
-}
 
 /* ── Voucher section ─────────────────────────────────────────────── */
 function applyVoucherRestriction(program) {
@@ -1611,54 +1909,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     toast('Program created — API key shown in list'); form.reset(); await loadPrograms();
   });
 
-  // ── Configure: program select
-  document.getElementById('cfg-program-select').addEventListener('change', e => {
-    loadCfgProgram(e.target.value);
-  });
-
-  // ── Configure: map outlet
-  document.getElementById('form-cfg-outlet').addEventListener('submit', async e => {
-    e.preventDefault();
-    const fd = formData(e.target);
-    const pid = S.currentProgram?.id;
-    if (!pid) return toast('Select a program first', 'error');
-    await POST(`/api/programs/${pid}/outlets`, { outlet_id: fd.outlet_id, price: parseFloat(fd.price) || 0 });
-    toast('Outlet mapped'); loadCfgProgram(pid);
-  });
-
-  // ── Configure: map service (with billing model)
-  document.getElementById('form-cfg-service').addEventListener('submit', async e => {
-    e.preventDefault();
-    const fd  = formData(e.target);
-    const pid = S.currentProgram?.id;
-    if (!pid) return toast('Select a program first', 'error');
-    if (!fd.service_id) return toast('Select a service', 'error');
-    const model = fd.billing_model || 'issuance';
-    if (model !== 'discount' && (!fd.unit_price || parseFloat(fd.unit_price) < 0)) {
-      return toast('Enter a billing rate (0 for complimentary)', 'error');
-    }
-    if (model === 'discount' && (!fd.discount_value || parseFloat(fd.discount_value) <= 0)) {
-      return toast('Enter a discount ceiling greater than 0', 'error');
-    }
-    await POST(`/api/programs/${pid}/services`, {
-      service_id:     fd.service_id,
-      billing_model:  model,
-      unit_price:     parseFloat(fd.unit_price) || 0,
-      discount_value: model === 'discount' ? parseFloat(fd.discount_value) : null,
-    });
-    toast('Service mapped'); e.target.reset(); document.getElementById('cfg-billing-model').value = 'issuance'; cfgToggleBillingFields(); loadCfgProgram(pid);
-  });
-
-  // ── Configure: restriction level
-  document.getElementById('form-cfg-restriction').addEventListener('submit', async e => {
-    e.preventDefault();
-    const fd  = formData(e.target);
-    const pid = S.currentProgram?.id;
-    if (!pid) return toast('Select a program first', 'error');
-    await PATCH(`/api/programs/${pid}`, { restriction_level: fd.restriction_level });
-    toast('Restriction level updated'); loadCfgProgram(pid);
-  });
-
   // ── Voucher: program select → load services + set restriction UI
   document.getElementById('vch-program').addEventListener('change', async e => {
     const prog   = S.programs.find(p => p.id === e.target.value);
@@ -1830,16 +2080,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   showSection(firstAccessible || 'clients');
 });
-
-/* ── Configure: billing model toggle ─────────────────────────────── */
-function cfgToggleBillingFields() {
-  const model = document.getElementById('cfg-billing-model')?.value;
-  const unitRow     = document.getElementById('cfg-unit-price-row');
-  const discountRow = document.getElementById('cfg-discount-value-row');
-  if (!unitRow || !discountRow) return;
-  unitRow.classList.toggle('hidden',    model === 'discount');
-  discountRow.classList.toggle('hidden', model !== 'discount');
-}
 
 /* ── Billing Transactions report ──────────────────────────────────── */
 async function loadBillingReport() {
