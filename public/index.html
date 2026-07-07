@@ -290,8 +290,11 @@
           </form>
         </div>
         <div class="card">
-          <div class="card-title">All Outlets</div>
-          <div id="list-outlets" class="list-body">Loading…</div>
+          <div class="card-title" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span>All Outlets</span>
+            <input id="outlet-search" placeholder="Search by name, site, vendor…" style="flex:1;min-width:160px;padding:5px 10px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:12px">
+          </div>
+          <div id="list-outlets" class="list-body" style="margin-top:10px">Loading…</div>
         </div>
       </div>
     </section>
@@ -349,6 +352,12 @@
               <label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px">Filter by Service</label>
               <select id="og-filter-service" onchange="ogApplyFilters()">
                 <option value="">All Services</option>
+              </select>
+            </div>
+            <div style="min-width:160px">
+              <label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px">Filter by Vendor</label>
+              <select id="og-filter-vendor" onchange="ogApplyFilters()">
+                <option value="">All Vendors</option>
               </select>
             </div>
           </div>

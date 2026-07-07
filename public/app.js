@@ -72,7 +72,7 @@ async function onSectionEnter(name) {
   if (name === 'sites')            { await loadSites(); }
   if (name === 'services')         { await loadServices(); }
   if (name === 'vendors')          { await loadVendors(); }
-  if (name === 'outlets')          { await loadOutlets(); populateSelect('#form-outlet select[name=site_id]', S.sites, 'id', s => `${s.name} (${s.iata_code})`); populateSelect('#form-outlet select[name=vendor_id]', S.vendors, 'id', v => v.name, true); initOutletServiceBuilder(); }
+  if (name === 'outlets')          { await loadOutlets(); populateSelect('#form-outlet select[name=site_id]', S.sites, 'id', s => `${s.name} (${s.iata_code})`); populateSelect('#form-outlet select[name=vendor_id]', S.vendors, 'id', v => v.name, true); initOutletServiceBuilder(); const srch = document.getElementById('outlet-search'); if (srch && !srch._bound) { srch._bound = true; srch.addEventListener('input', renderFilteredOutlets); } }
   if (name === 'outlet-groups')    { await loadOutletGroups(); }
   if (name === 'outlet-group-detail') { await loadOutletGroupDetail(); }
   if (name === 'program-outlets')  { await loadProgramOutlets(); }
@@ -150,7 +150,17 @@ function applyPermissionGating() {
 async function loadClients()  { S.clients  = await GET('/api/clients');  renderList('clients',  S.clients,  renderClient); }
 async function loadSites()    { S.sites    = await GET('/api/sites');    renderList('sites',    S.sites,    renderSite); }
 async function loadServices() { S.services = await GET('/api/services'); renderList('services', S.services, renderService); }
-async function loadOutlets()  { S.outlets  = await GET('/api/outlets');  renderList('outlets',  S.outlets,  renderOutlet); }
+async function loadOutlets()  { S.outlets  = await GET('/api/outlets');  renderFilteredOutlets(); }
+function renderFilteredOutlets() {
+  const q = (document.getElementById('outlet-search')?.value || '').toLowerCase();
+  const items = q ? S.outlets.filter(o =>
+    (o.name||'').toLowerCase().includes(q) ||
+    (o.site_name||'').toLowerCase().includes(q) ||
+    (o.iata_code||'').toLowerCase().includes(q) ||
+    (o.vendor_name||'').toLowerCase().includes(q)
+  ) : S.outlets;
+  renderList('outlets', items, renderOutlet);
+}
 async function loadPrograms() { S.programs = await GET('/api/programs'); renderList('programs', S.programs, renderProgram); }
 async function loadVendors()      { S.vendors      = await GET('/api/vendors');       if (S.vendors)      renderList('vendors', S.vendors, renderVendor); }
 async function loadOutletGroups() { S.outletGroups = await GET('/api/outlet-groups'); if (S.outletGroups) renderList('outlet-groups', S.outletGroups, renderOutletGroup); }
@@ -202,9 +212,10 @@ const EDIT_CONFIGS = {
     title: 'Edit Site',
     api:   id => `/api/sites/${id}`,
     fields: [
-      { name: 'name',    label: 'Airport Name *', type: 'text' },
-      { name: 'city',    label: 'City',           type: 'text' },
-      { name: 'country', label: 'Country',        type: 'text' },
+      { name: 'name',      label: 'Airport Name *', type: 'text' },
+      { name: 'iata_code', label: 'IATA Code *',    type: 'text' },
+      { name: 'city',      label: 'City',           type: 'text' },
+      { name: 'country',   label: 'Country',        type: 'text' },
     ]
   },
   service: {
@@ -220,6 +231,7 @@ const EDIT_CONFIGS = {
     api:   id => `/api/outlets/${id}`,
     fields: [
       { name: 'name',          label: 'Outlet Name *',  type: 'text' },
+      { name: 'site_id',       label: 'Site *',         type: 'site-select' },
       { name: 'vendor_id',     label: 'Vendor',         type: 'vendor-select' },
       { name: 'terminal_type', label: 'Terminal Type',  type: 'text' },
       { name: 'terminal_name', label: 'Terminal Name',  type: 'text' },
@@ -285,6 +297,10 @@ window.openEditModal = (type, id, dataJson) => {
       ).join('');
       return `<div class="field"><label>${f.label}</label><select id="ef-${f.name}" name="${f.name}">${opts}</select></div>`;
     }
+    if (f.type === 'site-select') {
+      const opts = S.sites.map(s => `<option value="${s.id}" ${val === s.id ? 'selected' : ''}>${esc(s.name)} (${esc(s.iata_code)})</option>`).join('');
+      return `<div class="field"><label>${f.label}</label><select id="ef-${f.name}" name="${f.name}">${opts}</select></div>`;
+    }
     if (f.type === 'vendor-select') {
       const opts = `<option value="">— no vendor —</option>` +
         S.vendors.map(v => `<option value="${v.id}" ${val === v.id ? 'selected' : ''}>${esc(v.name)}</option>`).join('');
@@ -330,20 +346,26 @@ async function saveEditModal() {
     toast('Saved successfully');
     closeEditModal();
     // Reload the relevant list
-    if (type === 'client')  await loadClients();
-    if (type === 'site')    await loadSites();
-    if (type === 'service') await loadServices();
-    if (type === 'outlet')  await loadOutlets();
-    if (type === 'program') await loadPrograms();
-    if (type === 'vendor')  await loadVendors();
+    if (type === 'client')      await loadClients();
+    if (type === 'site')        await loadSites();
+    if (type === 'service')     await loadServices();
+    if (type === 'outlet')      await loadOutlets();
+    if (type === 'program')     await loadPrograms();
+    if (type === 'vendor')      await loadVendors();
+    if (type === 'outletGroup') await loadOutletGroups();
   } catch (err) { toast(err.message, 'error'); }
 }
 
+const EDIT_PERM = { outletGroup: 'outlets:edit' };
 function editBtn(type, id, data) {
-  if (!can(`${type}s:edit`)) return '';
-  const json = esc(JSON.stringify(data));
+  const perm = EDIT_PERM[type] || `${type}s:edit`;
+  if (!can(perm)) return '';
   return `<button class="btn-secondary" style="font-size:11px;padding:4px 10px;flex-shrink:0"
     onclick='openEditModal("${type}","${id}",this.dataset.d)' data-d='${JSON.stringify(data)}'>Edit</button>`;
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => toast('Copied to clipboard')).catch(() => toast('Copy failed', 'error'));
 }
 
 function renderClient(c) {
@@ -356,7 +378,7 @@ function renderSite(s) {
   return `<div class="row-item">
     <div class="row-main"><div class="row-name">${esc(s.name)} <span class="tag tag-blue">${esc(s.iata_code)}</span></div>
     <div class="row-sub">${esc(s.city||'')} · ${esc(s.country||'')}</div></div>
-    ${editBtn('site', s.id, { name: s.name, city: s.city, country: s.country })}
+    ${editBtn('site', s.id, { name: s.name, iata_code: s.iata_code, city: s.city, country: s.country })}
   </div>`;
 }
 function renderService(sv) {
@@ -376,7 +398,7 @@ function renderOutlet(o) {
     <div style="display:flex;gap:6px;align-items:center">
       <button class="po-edit-price" onclick="openOutletServicesEditor('${o.id}','${esc(o.name)}')">Services</button>
       ${editBtn('outlet', o.id, {
-        name: o.name, vendor_id: o.vendor_id, terminal_type: o.terminal_type,
+        name: o.name, site_id: o.site_id, vendor_id: o.vendor_id, terminal_type: o.terminal_type,
         terminal_name: o.terminal_name, gate_type: o.gate_type, direction: o.direction,
         amenities: o.amenities, requires_boarding_pass: o.requires_boarding_pass
       })}
@@ -400,7 +422,7 @@ function renderProgram(p) {
     <div class="row-main">
       <div class="row-name">${esc(p.name)} <span class="tag tag-blue">${esc(p.code_prefix)}</span> <span class="tag tag-purple">${esc(p.restriction_level)}</span></div>
       <div class="row-sub">${esc(p.client_name||'')} · ${p.validity_days}d validity</div>
-      <div class="api-key-box">${esc(p.api_key)}</div>
+      <div class="api-key-box">${esc(p.api_key)} <button onclick="copyToClipboard('${esc(p.api_key)}')" title="Copy API key" style="background:none;border:none;color:#6366f1;cursor:pointer;font-size:13px;padding:0 4px;line-height:1">⧉</button></div>
     </div>
     <div style="display:flex;gap:6px;align-items:center">
       <button class="po-edit-price" onclick="openProgramOutlets('${p.id}','${esc(p.name)}')">Outlet Pricing</button>
@@ -414,7 +436,7 @@ function renderVendor(v) {
     <div class="row-main">
       <div class="row-name">${esc(v.name)} ${statusTag} <span class="tag tag-blue">${v.outlet_count} outlets</span></div>
       <div class="row-sub">${esc(v.email||'')}${v.phone ? ' · ' + esc(v.phone) : ''}</div>
-      <div class="api-key-box">${esc(v.api_key)}</div>
+      <div class="api-key-box">${esc(v.api_key)} <button onclick="copyToClipboard('${esc(v.api_key)}')" title="Copy API key" style="background:none;border:none;color:#6366f1;cursor:pointer;font-size:13px;padding:0 4px;line-height:1">⧉</button></div>
     </div>
     ${can('vendors:edit') ? `
     <div style="display:flex;gap:6px;flex-shrink:0;flex-direction:column;align-items:flex-end">
@@ -534,10 +556,12 @@ async function loadCfgProgram(id) {
 }
 
 window.removeProgramOutlet = async (progId, outletId) => {
+  if (!confirm('Remove this outlet from the program?')) return;
   await DEL(`/api/programs/${progId}/outlets/${outletId}`);
   toast('Outlet removed'); loadCfgProgram(progId);
 };
 window.removeProgramService = async (progId, svcId) => {
+  if (!confirm('Remove this service from the program?')) return;
   await DEL(`/api/programs/${progId}/services/${svcId}`);
   toast('Service removed'); loadCfgProgram(progId);
 };
@@ -550,6 +574,7 @@ window.regenVendorKey = async (vendorId, name) => {
 };
 
 window.toggleVendorActive = async (vendorId, active) => {
+  if (!confirm(active ? 'Deactivate this vendor? Their API key will stop working.' : 'Activate this vendor?')) return;
   await PATCH(`/api/vendors/${vendorId}`, { is_active: !active });
   toast(active ? 'Vendor deactivated' : 'Vendor activated');
   await loadVendors();
@@ -862,6 +887,7 @@ async function saveOutletServices() {
 const OG = {
   selectedSiteIds: new Set(),  // multi-location filter
   filterServiceId: '',
+  filterVendorId: '',
   availableOutlets: [],        // outlets not yet in group
   checkedOutletIds: new Set(),
 };
@@ -871,6 +897,7 @@ async function openOutletGroupDetail(groupId, name, desc) {
   OG.selectedSiteIds.clear();
   OG.checkedOutletIds.clear();
   OG.filterServiceId = '';
+  OG.filterVendorId  = '';
   document.getElementById('og-detail-name').textContent = name;
   document.getElementById('og-detail-desc').textContent = desc || '';
   showSection('outlet-group-detail');
@@ -900,6 +927,16 @@ async function loadOutletGroupDetail() {
   const svcFilter = document.getElementById('og-filter-service');
   svcFilter.innerHTML = '<option value="">All Services</option>' +
     svcsSeen.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+
+  // Populate vendor filter
+  const vendorsSeen = [...new Map(
+    OG.availableOutlets.filter(o => o.vendor_id).map(o => [o.vendor_id, { id: o.vendor_id, name: o.vendor_name }])
+  ).values()];
+  const vendorFilter = document.getElementById('og-filter-vendor');
+  if (vendorFilter) {
+    vendorFilter.innerHTML = '<option value="">All Vendors</option>' +
+      vendorsSeen.map(v => `<option value="${v.id}">${esc(v.name)}</option>`).join('');
+  }
 
   ogRenderFilterChips();
   ogApplyFilters();
@@ -934,12 +971,14 @@ function ogRenderFilterChips() {
 
 function ogApplyFilters() {
   OG.filterServiceId = document.getElementById('og-filter-service')?.value || '';
+  OG.filterVendorId  = document.getElementById('og-filter-vendor')?.value  || '';
 
   const filtered = OG.availableOutlets.filter(o => {
     const passLocation = OG.selectedSiteIds.size === 0 || OG.selectedSiteIds.has(o.site_id);
     const passService  = !OG.filterServiceId ||
       (o.services||[]).some(s => (s.service_id||s.id) === OG.filterServiceId);
-    return passLocation && passService;
+    const passVendor   = !OG.filterVendorId || o.vendor_id === OG.filterVendorId;
+    return passLocation && passService && passVendor;
   });
 
   // Remove checked outlets that are no longer visible
@@ -1028,6 +1067,7 @@ async function ogAddSelected() {
 }
 
 async function removeOutletFromGroup(outletId) {
+  if (!confirm('Remove this outlet from the group?')) return;
   await DEL(`/api/outlet-groups/${S.activeGroupId}/outlets/${outletId}`);
   toast('Outlet removed'); await loadOutletGroupDetail();
 }

@@ -85,20 +85,21 @@ router.get('/:id', requirePermission('outlets:view'), async (req, res) => {
 
 // PATCH /api/outlets/:id
 router.patch('/:id', requirePermission('outlets:edit'), async (req, res) => {
-  const { name, vendor_id, terminal_type, terminal_name, gate_type,
+  const { name, vendor_id, site_id, terminal_type, terminal_name, gate_type,
           direction, amenities, requires_boarding_pass } = req.body;
   const { rows } = await pool.query(`
     UPDATE outlets SET
       name                   = COALESCE($1, name),
       vendor_id              = COALESCE($2, vendor_id),
-      terminal_type          = COALESCE($3, terminal_type),
-      terminal_name          = COALESCE($4, terminal_name),
-      gate_type              = COALESCE($5, gate_type),
-      direction              = COALESCE($6, direction),
-      amenities              = COALESCE($7, amenities),
-      requires_boarding_pass = COALESCE($8, requires_boarding_pass)
-    WHERE id=$9 RETURNING *
-  `, [name||null, vendor_id||null, terminal_type||null, terminal_name||null,
+      site_id                = COALESCE($3, site_id),
+      terminal_type          = COALESCE($4, terminal_type),
+      terminal_name          = COALESCE($5, terminal_name),
+      gate_type              = COALESCE($6, gate_type),
+      direction              = COALESCE($7, direction),
+      amenities              = COALESCE($8, amenities),
+      requires_boarding_pass = COALESCE($9, requires_boarding_pass)
+    WHERE id=$10 RETURNING *
+  `, [name||null, vendor_id||null, site_id||null, terminal_type||null, terminal_name||null,
       gate_type||null, direction||null,
       amenities !== undefined ? amenities : null,
       requires_boarding_pass !== undefined ? requires_boarding_pass : null,

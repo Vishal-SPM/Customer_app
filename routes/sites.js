@@ -26,10 +26,10 @@ router.get('/:id', requirePermission('sites:view'), async (req, res) => {
 });
 
 router.patch('/:id', requirePermission('sites:edit'), async (req, res) => {
-  const { name, city, country } = req.body;
+  const { name, iata_code, city, country } = req.body;
   const { rows } = await pool.query(
-    'UPDATE sites SET name=COALESCE($1,name), city=COALESCE($2,city), country=COALESCE($3,country) WHERE id=$4 RETURNING *',
-    [name || null, city || null, country || null, req.params.id]
+    'UPDATE sites SET name=COALESCE($1,name), iata_code=COALESCE($2,iata_code), city=COALESCE($3,city), country=COALESCE($4,country) WHERE id=$5 RETURNING *',
+    [name || null, iata_code ? iata_code.toUpperCase() : null, city || null, country || null, req.params.id]
   );
   if (!rows.length) return res.status(404).json({ error: 'Site not found' });
   res.json(rows[0]);
