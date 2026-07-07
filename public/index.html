@@ -95,45 +95,77 @@
     .po-edit-price:hover { background: #1e293b; }
 
     /* ── Program Configure Matrix ── */
+    /* ── Outlet × Service pricing matrix ── */
     .pcfg-matrix { width: 100%; border-collapse: collapse; font-size: 13px; }
     .pcfg-matrix th {
-      background: #1e293b; color: #64748b; font-size: 11px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: .5px;
+      background: #f8fafc; color: #64748b; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .6px;
       padding: 10px 14px; text-align: left; white-space: nowrap;
-      border-bottom: 2px solid #334155;
+      border-bottom: 2px solid #e2e8f0;
     }
-    .pcfg-matrix th.svc-col { text-align: center; min-width: 120px; }
-    .pcfg-matrix td { padding: 10px 14px; border-bottom: 1px solid #1e293b; vertical-align: middle; }
+    .pcfg-matrix th.svc-col { text-align: center; min-width: 130px; color: #475569; }
+    .pcfg-matrix td { padding: 11px 14px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
     .pcfg-matrix tr:last-child td { border-bottom: none; }
-    .pcfg-matrix tr:hover td { background: #0a1628; }
+    .pcfg-matrix tr:hover td { background: #fafbfc; }
     .pcfg-matrix td.svc-cell { text-align: center; }
     .pcfg-price-cell {
-      display: inline-block; cursor: pointer; color: #22c55e; font-weight: 600;
-      padding: 3px 10px; border-radius: 6px; border: 1px solid transparent; font-size: 13px;
+      display: inline-block; cursor: pointer; color: #16a34a; font-weight: 700;
+      padding: 4px 12px; border-radius: 6px; border: 1px solid #dcfce7;
+      font-size: 13px; background: #f0fdf4; transition: all .12s;
     }
-    .pcfg-price-cell:hover { background: #052e16; border-color: #22c55e33; }
+    .pcfg-price-cell:hover { background: #dcfce7; border-color: #22c55e; }
     .pcfg-price-input {
       width: 90px; padding: 4px 8px; border-radius: 6px;
-      border: 1px solid #6366f1; background: #0f172a; color: #e2e8f0;
+      border: 1px solid #6366f1; background: #fff; color: #0f172a;
       font-size: 13px; font-weight: 600; text-align: center;
     }
-    .pcfg-no-svc { color: #334155; font-size: 18px; }
-    .pcfg-svc-table {
-      width: 100%; border-collapse: collapse; font-size: 13px;
-      border: 1px solid #334155; border-radius: 8px; overflow: hidden;
+    .pcfg-no-svc { color: #d1d5db; font-size: 16px; letter-spacing: 1px; }
+
+    /* ── Service cards ── */
+    .pcfg-svc-list { display: flex; flex-direction: column; gap: 8px; }
+    .pcfg-svc-item {
+      display: flex; align-items: center; gap: 16px;
+      padding: 14px 16px 14px 20px; border-radius: 10px;
+      border: 1px solid #e2e8f0; background: #f8fafc;
+      position: relative; overflow: hidden;
+      transition: border-color .15s, box-shadow .15s;
     }
-    .pcfg-svc-table th {
-      background: #1e293b; color: #64748b; font-size: 11px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: .5px; padding: 9px 14px; text-align: left;
-      border-bottom: 1px solid #334155;
+    .pcfg-svc-item:hover { border-color: #cbd5e1; box-shadow: 0 2px 8px rgba(15,23,42,.07); }
+    .pcfg-svc-accent { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
+    .pcfg-svc-body { flex: 1; min-width: 0; }
+    .pcfg-svc-name { font-size: 15px; font-weight: 700; color: #0f172a; }
+    .pcfg-svc-sub { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+    .pcfg-svc-rate {
+      font-size: 14px; font-weight: 700; color: #1e293b;
+      background: #fff; border: 1px solid #e2e8f0;
+      padding: 7px 16px; border-radius: 8px; white-space: nowrap; min-width: 110px; text-align: center;
     }
-    .pcfg-svc-table td { padding: 10px 14px; border-bottom: 1px solid #1e293b; }
-    .pcfg-svc-table tr:last-child td { border-bottom: none; }
-    .pcfg-svc-table tr:hover td { background: #0a1628; }
     .pcfg-billing-tag {
       font-size: 11px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: .5px; padding: 3px 8px; border-radius: 12px;
+      letter-spacing: .8px; padding: 4px 10px; border-radius: 20px; white-space: nowrap;
     }
+    .pcfg-svc-edit {
+      padding: 6px 12px; background: #fff; border: 1px solid #e2e8f0;
+      border-radius: 6px; font-size: 12px; font-weight: 600; color: #475569;
+      cursor: pointer; transition: all .12s; white-space: nowrap;
+    }
+    .pcfg-svc-edit:hover { background: #f1f5f9; border-color: #cbd5e1; color: #0f172a; }
+    .pcfg-svc-del {
+      background: none; border: none; cursor: pointer;
+      color: #ef4444; font-size: 22px; line-height: 1; padding: 0 4px;
+      opacity: .25; transition: opacity .15s;
+    }
+    .pcfg-svc-del:hover { opacity: 1; }
+
+    /* ── Step label ── */
+    .pcfg-step {
+      display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .8px; padding: 2px 8px; border-radius: 20px; margin-bottom: 4px;
+    }
+    #btn-pcfg-map-outlets:disabled {
+      opacity: .4; cursor: not-allowed;
+    }
+
     .pcfg-add-form {
       background: #0f172a; border-radius: 10px; padding: 16px;
       margin-bottom: 16px; border: 1px solid #334155;
@@ -146,12 +178,20 @@
     .pcfg-outlet-row:last-child { border-bottom: none; }
     .pcfg-outlet-row.selected { background: #1e3a5f; }
     .pcfg-outlet-row input[type=radio] { accent-color: #6366f1; width: 15px; height: 15px; cursor: pointer; flex-shrink: 0; }
+
+    /* ── Info bar ── */
     .pcfg-info-bar {
-      display: flex; gap: 24px; align-items: center; flex-wrap: wrap; padding: 14px 20px;
-      background: #1e293b; border: 1px solid #334155; border-radius: 10px; margin-bottom: 20px;
+      display: flex; align-items: stretch; flex-wrap: wrap;
+      background: #0f172a; border: 1px solid #1e293b; border-radius: 12px;
+      margin-bottom: 20px; overflow: hidden;
     }
-    .pcfg-info-item label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 3px; }
-    .pcfg-info-item .val { font-size: 14px; font-weight: 700; color: #f8fafc; }
+    .pcfg-info-item {
+      padding: 14px 22px; border-right: 1px solid #1e293b;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .pcfg-info-item:last-child { border-right: none; flex: 1; }
+    .pcfg-info-item label { font-size: 10px; color: #475569; text-transform: uppercase; letter-spacing: .6px; display: block; }
+    .pcfg-info-item .val { font-size: 15px; font-weight: 700; color: #f8fafc; }
   </style>
 </head>
 <body>
@@ -460,12 +500,13 @@
 
       <!-- Services section -->
       <div class="card" style="margin-bottom:20px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px">
           <div>
-            <div class="card-title" style="margin-bottom:2px">Services</div>
-            <div style="font-size:12px;color:#64748b">Define what this program offers and how each service is billed to the client.</div>
+            <span class="pcfg-step" style="background:#ede9fe;color:#6d28d9">Step 1</span>
+            <div class="card-title" style="margin-bottom:3px">Services</div>
+            <div style="font-size:12px;color:#94a3b8">Define what this program offers and how each service is billed to the client.</div>
           </div>
-          <button class="btn-secondary" id="btn-pcfg-add-svc" onclick="pcfgToggleAddService()">+ Add Service</button>
+          <button class="btn-secondary" id="btn-pcfg-add-svc" onclick="pcfgToggleAddService()" style="margin-top:4px">+ Add Service</button>
         </div>
 
         <!-- Inline add/edit form -->
@@ -505,19 +546,20 @@
 
       <!-- Outlets matrix -->
       <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
           <div>
-            <div class="card-title" style="margin-bottom:2px">Outlets &amp; Pricing</div>
-            <div style="font-size:12px;color:#64748b">Each column is a service. Click a price to edit it inline. Dash (—) means outlet doesn't offer that service.</div>
+            <span class="pcfg-step" style="background:#e0f2fe;color:#0369a1">Step 2</span>
+            <div class="card-title" style="margin-bottom:3px">Outlets &amp; Pricing</div>
+            <div style="font-size:12px;color:#94a3b8">Map outlets then set a program price per service. Click any price cell to edit inline.</div>
           </div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px">
             <input id="pcfg-outlet-search" placeholder="Search outlets…" oninput="renderPcfgMatrix()"
-              style="padding:5px 10px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:12px;width:180px">
-            <button class="btn-secondary" id="btn-pcfg-map-outlets" onclick="pcfgOpenAddModal()">+ Map Outlets</button>
+              style="padding:7px 12px;border-radius:7px;border:1px solid #e2e8f0;background:#f8fafc;color:#0f172a;font-size:12px;width:190px">
+            <button class="btn-primary" id="btn-pcfg-map-outlets" onclick="pcfgOpenAddModal()">+ Map Outlets</button>
           </div>
         </div>
         <div id="pcfg-outlet-matrix" style="overflow-x:auto">
-          <p style="color:#64748b;font-size:13px">Add services first, then map outlets.</p>
+          <p style="color:#94a3b8;font-size:13px">Add services first, then map outlets.</p>
         </div>
       </div>
     </section>

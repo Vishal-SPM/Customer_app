@@ -547,34 +547,41 @@ async function loadProgramConfigure() {
 function renderPcfgServices() {
   const el = document.getElementById('pcfg-services-list');
   if (!PCFG.services.length) {
-    el.innerHTML = '<p style="color:#64748b;font-size:13px;padding:4px 0">No services yet. Click "+ Add Service" above.</p>';
+    el.innerHTML = `<div style="text-align:center;padding:28px 0;color:#94a3b8">
+      <div style="font-size:28px;margin-bottom:8px">⚙</div>
+      <div style="font-size:14px;font-weight:600;color:#475569;margin-bottom:4px">No services yet</div>
+      <div style="font-size:12px">Click "+ Add Service" to define what this program offers.</div>
+    </div>`;
     return;
   }
   const canEdit = can('programs:edit');
-  const tagColor = { issuance: '#6366f1', redemption: '#22c55e', discount: '#f59e0b' };
-  const modelLabel = { issuance: 'Issuance', redemption: 'Redemption', discount: 'Discount' };
+  const modelMeta = {
+    issuance:   { color: '#6d28d9', bg: '#ede9fe', label: 'Issuance',   desc: 'Billed when voucher is created' },
+    redemption: { color: '#059669', bg: '#d1fae5', label: 'Redemption', desc: 'Billed when voucher is redeemed' },
+    discount:   { color: '#b45309', bg: '#fef3c7', label: 'Discount',   desc: 'Billed as actual discount given' },
+  };
 
-  el.innerHTML = `<table class="pcfg-svc-table">
-    <thead><tr>
-      <th>Service</th><th>Billing Model</th><th>Rate / Ceiling</th>
-      ${canEdit ? '<th></th><th></th>' : ''}
-    </tr></thead>
-    <tbody>
+  el.innerHTML = `<div class="pcfg-svc-list">
     ${PCFG.services.map(sv => {
-      const tc = tagColor[sv.billing_model] || '#64748b';
+      const m = modelMeta[sv.billing_model] || { color: '#475569', bg: '#f1f5f9', label: sv.billing_model, desc: '' };
       const rateStr = sv.billing_model === 'discount'
         ? `₹${sv.discount_value} ceiling`
-        : `₹${sv.unit_price} / use`;
-      return `<tr>
-        <td style="font-weight:600;color:#e2e8f0">${esc(sv.name)}</td>
-        <td><span class="pcfg-billing-tag" style="background:${tc}22;color:${tc};border:1px solid ${tc}44">${modelLabel[sv.billing_model]||sv.billing_model}</span></td>
-        <td style="color:#94a3b8">${rateStr}</td>
-        ${canEdit ? `<td><button class="po-edit-price" onclick="pcfgEditService('${sv.id}','${sv.billing_model}',${sv.unit_price},${sv.discount_value ?? 'null'})">Edit</button></td>` : ''}
-        ${canEdit ? `<td><button onclick="pcfgRemoveService('${sv.id}')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:18px;padding:0;line-height:1" title="Remove">×</button></td>` : ''}
-      </tr>`;
+        : `₹${parseFloat(sv.unit_price).toFixed(2)} / use`;
+      return `<div class="pcfg-svc-item">
+        <div class="pcfg-svc-accent" style="background:${m.color}"></div>
+        <div class="pcfg-svc-body">
+          <div class="pcfg-svc-name">${esc(sv.name)}</div>
+          <div class="pcfg-svc-sub">${m.desc}</div>
+        </div>
+        <span class="pcfg-billing-tag" style="background:${m.bg};color:${m.color};border:1px solid ${m.color}33">${m.label}</span>
+        <div class="pcfg-svc-rate">${rateStr}</div>
+        ${canEdit ? `
+          <button class="pcfg-svc-edit" onclick="pcfgEditService('${sv.id}','${sv.billing_model}',${sv.unit_price},${sv.discount_value ?? 'null'})">Edit</button>
+          <button class="pcfg-svc-del" onclick="pcfgRemoveService('${sv.id}')" title="Remove service">×</button>
+        ` : ''}
+      </div>`;
     }).join('')}
-    </tbody>
-  </table>`;
+  </div>`;
 }
 
 function renderPcfgMatrix() {
@@ -583,12 +590,22 @@ function renderPcfgMatrix() {
   const outlets = PCFG.outlets;
   const canEdit = can('programs:edit');
 
+  const btnMap = document.getElementById('btn-pcfg-map-outlets');
+  if (btnMap) btnMap.disabled = !svcs.length;
+
   if (!svcs.length) {
-    el.innerHTML = '<p style="color:#64748b;font-size:13px">Add services first, then map outlets.</p>';
+    el.innerHTML = `<div style="text-align:center;padding:28px 0;color:#94a3b8">
+      <div style="font-size:28px;margin-bottom:8px">↑</div>
+      <div style="font-size:13px">Add at least one service above before mapping outlets.</div>
+    </div>`;
     return;
   }
   if (!outlets.length) {
-    el.innerHTML = '<p style="color:#64748b;font-size:13px">No outlets mapped yet. Use "+ Add Outlet" or "+ Add Group" above.</p>';
+    el.innerHTML = `<div style="text-align:center;padding:28px 0;color:#94a3b8">
+      <div style="font-size:28px;margin-bottom:8px">🏢</div>
+      <div style="font-size:14px;font-weight:600;color:#475569;margin-bottom:4px">No outlets mapped yet</div>
+      <div style="font-size:12px">Click "+ Map Outlets" to select outlets and set program prices.</div>
+    </div>`;
     return;
   }
 
@@ -609,7 +626,7 @@ function renderPcfgMatrix() {
   );
 
   const svcHeaders = svcs.map(sv =>
-    `<th class="svc-col">${esc(sv.name)}</th>`
+    `<th class="svc-col" style="font-size:12px;color:#0f172a;font-weight:700;text-transform:none;letter-spacing:0">${esc(sv.name)}</th>`
   ).join('');
 
   const rows = filtered.map(o => {
@@ -627,11 +644,11 @@ function renderPcfgMatrix() {
 
     return `<tr>
       <td>
-        <div style="font-size:13px;font-weight:600;color:#e2e8f0">${esc(o.outlet_name)}</div>
-        <div style="font-size:11px;color:#64748b;margin-top:2px">${esc(o.iata_code||'')}${o.vendor_name ? ' · ' + esc(o.vendor_name) : ''}</div>
+        <div style="font-size:13px;font-weight:700;color:#0f172a">${esc(o.outlet_name)}</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:2px">${esc(o.iata_code||'')}${o.vendor_name ? ' · ' + esc(o.vendor_name) : ''}</div>
       </td>
       ${cells}
-      ${canEdit ? `<td><button onclick="pcfgRemoveOutlet('${o.outlet_id}')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:18px;padding:0;line-height:1" title="Remove">×</button></td>` : ''}
+      ${canEdit ? `<td><button onclick="pcfgRemoveOutlet('${o.outlet_id}')" class="pcfg-svc-del" title="Remove outlet">×</button></td>` : ''}
     </tr>`;
   }).join('');
 
