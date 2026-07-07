@@ -858,8 +858,19 @@ async function saveOutletServices() {
 }
 
 /* ── Outlet Group detail ─────────────────────────────────────────── */
+// Filter + selection state for the group detail page
+const OG = {
+  selectedSiteIds: new Set(),  // multi-location filter
+  filterServiceId: '',
+  availableOutlets: [],        // outlets not yet in group
+  checkedOutletIds: new Set(),
+};
+
 async function openOutletGroupDetail(groupId, name, desc) {
   S.activeGroupId = groupId;
+  OG.selectedSiteIds.clear();
+  OG.checkedOutletIds.clear();
+  OG.filterServiceId = '';
   document.getElementById('og-detail-name').textContent = name;
   document.getElementById('og-detail-desc').textContent = desc || '';
   showSection('outlet-group-detail');
@@ -867,38 +878,178 @@ async function openOutletGroupDetail(groupId, name, desc) {
 
 async function loadOutletGroupDetail() {
   if (!S.activeGroupId) return;
-  // Populate outlet picker (outlets not already in group)
+
   const members = await GET(`/api/outlet-groups/${S.activeGroupId}/outlets`);
   if (!members) return;
 
-  const memberIds = new Set(members.map(m => m.id));
-  const available = S.outlets.filter(o => !memberIds.has(o.id));
-  populateSelect('#og-outlet-pick', available, 'id', o => `${o.name} (${o.iata_code})`);
+  // Compute available outlets (not in group)
+  const memberIds  = new Set(members.map(m => m.id));
+  OG.availableOutlets = S.outlets.filter(o => !memberIds.has(o.id));
+  OG.checkedOutletIds.clear();
 
-  const el = document.getElementById('og-detail-outlets');
-  el.innerHTML = members.length
-    ? members.map(o => `
-        <div class="row-item">
-          <div class="row-main">
-            <div class="row-name">${esc(o.name)} <span class="tag">${esc(o.iata_code)}</span></div>
-            <div class="row-sub">${esc(o.site_name||'')} · ${esc(o.vendor_name||'')}</div>
-          </div>
-          <button class="btn-secondary" style="font-size:11px;padding:4px 10px;color:#ef4444;border-color:#ef4444"
-            onclick="removeOutletFromGroup('${o.id}')">Remove</button>
-        </div>`).join('')
-    : '<p style="color:#64748b;font-size:13px">No outlets in this group yet.</p>';
+  // Populate site filter dropdown
+  const sitesSeen = [...new Map(OG.availableOutlets.map(o => [o.site_id, { id: o.site_id, label: `${o.site_name} (${o.iata_code})` }])).values()];
+  const sitePick = document.getElementById('og-filter-site-pick');
+  sitePick.innerHTML = '<option value="">— add location —</option>' +
+    sitesSeen.map(s => `<option value="${s.id}">${esc(s.label)}</option>`).join('');
+
+  // Populate service filter
+  const svcsSeen = [...new Map(
+    OG.availableOutlets.flatMap(o => (o.services||[]).filter(Boolean)).map(s => [s.service_id||s.id, { id: s.service_id||s.id, name: s.service_name||s.name }])
+  ).values()];
+  const svcFilter = document.getElementById('og-filter-service');
+  svcFilter.innerHTML = '<option value="">All Services</option>' +
+    svcsSeen.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+
+  ogRenderFilterChips();
+  ogApplyFilters();
+  ogRenderMembers(members);
 }
 
-async function addOutletToGroup() {
-  const outletId = document.getElementById('og-outlet-pick').value;
-  if (!outletId) { toast('Select an outlet first', 'error'); return; }
-  const ok = await POST(`/api/outlet-groups/${S.activeGroupId}/outlets`, { outlet_id: outletId });
-  if (ok) { toast('Outlet added to group'); await loadOutletGroupDetail(); }
+function ogAddLocationFilter() {
+  const pick = document.getElementById('og-filter-site-pick');
+  const id   = pick.value;
+  if (!id || OG.selectedSiteIds.has(id)) return;
+  OG.selectedSiteIds.add(id);
+  pick.value = '';
+  ogRenderFilterChips();
+  ogApplyFilters();
+}
+
+function ogRemoveLocationFilter(siteId) {
+  OG.selectedSiteIds.delete(siteId);
+  ogRenderFilterChips();
+  ogApplyFilters();
+}
+
+function ogRenderFilterChips() {
+  const el = document.getElementById('og-filter-site-chips');
+  if (!el) return;
+  el.innerHTML = [...OG.selectedSiteIds].map(sid => {
+    const outlet = OG.availableOutlets.find(o => o.site_id === sid);
+    const label  = outlet ? `${outlet.site_name} (${outlet.iata_code})` : sid;
+    return `<span class="filter-chip">${esc(label)}<button onclick="ogRemoveLocationFilter('${sid}')">×</button></span>`;
+  }).join('');
+}
+
+function ogApplyFilters() {
+  OG.filterServiceId = document.getElementById('og-filter-service')?.value || '';
+
+  const filtered = OG.availableOutlets.filter(o => {
+    const passLocation = OG.selectedSiteIds.size === 0 || OG.selectedSiteIds.has(o.site_id);
+    const passService  = !OG.filterServiceId ||
+      (o.services||[]).some(s => (s.service_id||s.id) === OG.filterServiceId);
+    return passLocation && passService;
+  });
+
+  // Remove checked outlets that are no longer visible
+  const visibleIds = new Set(filtered.map(o => o.id));
+  for (const id of [...OG.checkedOutletIds]) {
+    if (!visibleIds.has(id)) OG.checkedOutletIds.delete(id);
+  }
+
+  ogRenderAvailableList(filtered);
+  ogUpdateAddButton();
+}
+
+function ogRenderAvailableList(outlets) {
+  const el = document.getElementById('og-available-list');
+  if (!outlets.length) {
+    el.innerHTML = '<p style="padding:16px;color:#64748b;font-size:13px">No outlets match the current filters.</p>';
+    document.getElementById('og-select-all').checked = false;
+    document.getElementById('og-select-label').textContent = 'Select all';
+    return;
+  }
+
+  el.innerHTML = outlets.map(o => {
+    const svcList = (o.services||[]).filter(Boolean).map(s => s.service_name||s.name).join(', ');
+    const checked = OG.checkedOutletIds.has(o.id);
+    return `<div class="og-outlet-row">
+      <input type="checkbox" id="ogchk-${o.id}" value="${o.id}" ${checked ? 'checked' : ''}
+        onchange="ogToggleOutlet('${o.id}', this.checked)"
+        style="accent-color:#6366f1;width:15px;height:15px;cursor:pointer;flex-shrink:0">
+      <div class="og-outlet-info">
+        <div class="og-outlet-name">${esc(o.name)} <span class="tag">${esc(o.iata_code||'')}</span></div>
+        <div class="og-outlet-meta">${esc(o.site_name||'')}${o.vendor_name ? ' · ' + esc(o.vendor_name) : ''}${svcList ? ' · ' + esc(svcList) : ''}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const allChecked = outlets.every(o => OG.checkedOutletIds.has(o.id));
+  const selectAll  = document.getElementById('og-select-all');
+  selectAll.checked       = allChecked && outlets.length > 0;
+  selectAll.indeterminate = !allChecked && OG.checkedOutletIds.size > 0;
+  document.getElementById('og-select-label').textContent =
+    `Select all (${outlets.length} shown)`;
+}
+
+function ogToggleOutlet(outletId, checked) {
+  if (checked) OG.checkedOutletIds.add(outletId);
+  else         OG.checkedOutletIds.delete(outletId);
+  ogUpdateAddButton();
+
+  // Update select-all indeterminate state
+  const visible = [...document.querySelectorAll('#og-available-list input[type=checkbox]')];
+  const allChecked = visible.every(cb => cb.checked);
+  const selectAll  = document.getElementById('og-select-all');
+  selectAll.checked       = allChecked;
+  selectAll.indeterminate = !allChecked && OG.checkedOutletIds.size > 0;
+}
+
+function ogToggleSelectAll(checked) {
+  document.querySelectorAll('#og-available-list input[type=checkbox]').forEach(cb => {
+    cb.checked = checked;
+    const id   = cb.value;
+    if (checked) OG.checkedOutletIds.add(id);
+    else         OG.checkedOutletIds.delete(id);
+  });
+  document.getElementById('og-select-all').indeterminate = false;
+  ogUpdateAddButton();
+}
+
+function ogUpdateAddButton() {
+  const btn = document.getElementById('btn-og-add-selected');
+  const n   = OG.checkedOutletIds.size;
+  btn.disabled     = n === 0;
+  btn.textContent  = n ? `Add Selected (${n})` : 'Add Selected (0)';
+}
+
+async function ogAddSelected() {
+  if (!OG.checkedOutletIds.size) return;
+  const ids = [...OG.checkedOutletIds];
+  let added = 0;
+  for (const outlet_id of ids) {
+    const ok = await POST(`/api/outlet-groups/${S.activeGroupId}/outlets`, { outlet_id });
+    if (ok) added++;
+  }
+  toast(`${added} outlet(s) added to group`);
+  OG.checkedOutletIds.clear();
+  await loadOutletGroupDetail();
 }
 
 async function removeOutletFromGroup(outletId) {
   await DEL(`/api/outlet-groups/${S.activeGroupId}/outlets/${outletId}`);
   toast('Outlet removed'); await loadOutletGroupDetail();
+}
+
+function ogRenderMembers(members) {
+  const count = document.getElementById('og-member-count');
+  if (count) count.textContent = members.length ? `— ${members.length} outlet(s)` : '';
+
+  const el = document.getElementById('og-detail-outlets');
+  el.innerHTML = members.length
+    ? members.map(o => {
+        const svcs = (o.services||[]).filter(Boolean).map(s => s.service_name||s.name).join(', ');
+        return `<div class="row-item">
+          <div class="row-main">
+            <div class="row-name">${esc(o.name)} <span class="tag">${esc(o.iata_code||'')}</span></div>
+            <div class="row-sub">${esc(o.site_name||'')}${o.vendor_name ? ' · ' + esc(o.vendor_name) : ''}${svcs ? ' · ' + esc(svcs) : ''}</div>
+          </div>
+          <button class="btn-secondary" style="font-size:11px;padding:4px 10px;color:#ef4444;border-color:#ef4444"
+            onclick="removeOutletFromGroup('${o.id}')">Remove</button>
+        </div>`;
+      }).join('')
+    : '<p style="color:#64748b;font-size:13px">No outlets in this group yet.</p>';
 }
 
 /* ── Program Outlet Pricing ──────────────────────────────────────── */
