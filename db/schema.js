@@ -186,6 +186,30 @@ async function createSchema() {
         PRIMARY KEY (program_id, outlet_id, service_id)
       );
 
+      -- Billing configuration on program-service junction
+      ALTER TABLE program_services ADD COLUMN IF NOT EXISTS billing_model  TEXT         NOT NULL DEFAULT 'issuance';
+      ALTER TABLE program_services ADD COLUMN IF NOT EXISTS unit_price     NUMERIC(10,2) NOT NULL DEFAULT 0;
+      ALTER TABLE program_services ADD COLUMN IF NOT EXISTS discount_value NUMERIC(10,2);
+
+      -- Redemption billing fields (discount model)
+      ALTER TABLE redemptions ADD COLUMN IF NOT EXISTS actual_bill_amount NUMERIC(10,2);
+      ALTER TABLE redemptions ADD COLUMN IF NOT EXISTS discounted_amount  NUMERIC(10,2);
+
+      -- Billing events — one row per billable event (issuance or redemption)
+      CREATE TABLE IF NOT EXISTS billing_events (
+        id                 TEXT PRIMARY KEY,
+        voucher_id         TEXT NOT NULL REFERENCES vouchers(id),
+        program_id         TEXT NOT NULL REFERENCES programs(id),
+        service_id         TEXT NOT NULL REFERENCES services(id),
+        outlet_id          TEXT REFERENCES outlets(id),
+        billing_model      TEXT NOT NULL,
+        unit_price         NUMERIC(10,2) NOT NULL DEFAULT 0,
+        actual_bill_amount NUMERIC(10,2),
+        billed_amount      NUMERIC(10,2) NOT NULL,
+        event_type         TEXT NOT NULL,
+        event_at           TIMESTAMPTZ DEFAULT NOW()
+      );
+
     `);
 
     // Seed default superadmin on first run

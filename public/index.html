@@ -158,6 +158,7 @@
         <a class="nav-link" data-section="reports-history">Redemption History</a>
         <a class="nav-link" data-section="reports-vouchers">Voucher List</a>
         <a class="nav-link" data-section="reports-notifications">Notification Log</a>
+        <a class="nav-link" data-section="reports-billing">Billing Transactions</a>
       </div>
       <div class="nav-group" id="nav-admin" style="display:none">
         <div class="nav-label">Admin</div>
@@ -524,6 +525,22 @@
                 <div class="field">
                   <select name="service_id"><option value="">— select service —</option></select>
                 </div>
+                <div class="field">
+                  <label style="font-size:12px;color:#94a3b8">Billing Model</label>
+                  <select name="billing_model" id="cfg-billing-model" onchange="cfgToggleBillingFields()">
+                    <option value="issuance">Issuance — bill on voucher creation</option>
+                    <option value="redemption">Redemption — bill on redemption</option>
+                    <option value="discount">Discount — bill actual discount used</option>
+                  </select>
+                </div>
+                <div class="field" id="cfg-unit-price-row">
+                  <label style="font-size:12px;color:#94a3b8">Billing Rate per Use (₹) *</label>
+                  <input name="unit_price" type="number" min="0" step="0.01" placeholder="e.g. 800">
+                </div>
+                <div class="field hidden" id="cfg-discount-value-row">
+                  <label style="font-size:12px;color:#94a3b8">Discount Ceiling (₹) *</label>
+                  <input name="discount_value" type="number" min="0" step="0.01" placeholder="e.g. 500">
+                </div>
                 <button type="submit" class="btn-primary">Map Service</button>
               </form>
             </div>
@@ -836,6 +853,52 @@
       <div class="card">
         <div id="rpt-notif-count" style="font-size:12px;color:#64748b;margin-bottom:12px"></div>
         <div id="rpt-notif-table" class="list-body"></div>
+      </div>
+    </section>
+
+    <!-- ── BILLING TRANSACTIONS ─────────────────────────── -->
+    <section id="section-reports-billing" class="section">
+      <div class="page-header">
+        <h1>Billing Transactions</h1>
+        <p>All billable events across programs. Filter and export for finance.</p>
+      </div>
+
+      <!-- Filters -->
+      <div class="card" style="margin-bottom:20px">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+          <div class="field" style="margin:0;min-width:200px">
+            <label style="font-size:11px">Program</label>
+            <select id="rpt-bill-program"><option value="">All Programs</option></select>
+          </div>
+          <div class="field" style="margin:0;min-width:160px">
+            <label style="font-size:11px">Billing Model</label>
+            <select id="rpt-bill-model">
+              <option value="">All Models</option>
+              <option value="issuance">Issuance</option>
+              <option value="redemption">Redemption</option>
+              <option value="discount">Discount</option>
+            </select>
+          </div>
+          <div class="field" style="margin:0">
+            <label style="font-size:11px">From Date</label>
+            <input type="date" id="rpt-bill-from">
+          </div>
+          <div class="field" style="margin:0">
+            <label style="font-size:11px">To Date</label>
+            <input type="date" id="rpt-bill-to">
+          </div>
+          <button class="btn-primary" id="btn-rpt-bill-load">Apply</button>
+          <button class="btn-secondary" id="btn-rpt-bill-csv" style="white-space:nowrap">⬇ Export CSV</button>
+        </div>
+      </div>
+
+      <!-- Summary cards -->
+      <div id="rpt-bill-summary" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px"></div>
+
+      <!-- Table -->
+      <div class="card">
+        <div id="rpt-bill-count" style="font-size:12px;color:#64748b;margin-bottom:12px"></div>
+        <div id="rpt-bill-table" class="list-body"></div>
       </div>
     </section>
 

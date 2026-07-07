@@ -27,6 +27,7 @@ app.use('/api/vendors',        require('./routes/vendors'));
 app.use('/api/outlet-groups',  require('./routes/outlet-groups'));
 app.use('/api/programs/:program_id/outlets', require('./routes/program-outlets'));
 app.use('/api/reports',        require('./routes/reports'));
+app.use('/api/billing',        require('./routes/billing'));
 app.use('/api/voucher',   require('./routes/vouchers'));
 app.use('/api/internal', require('./routes/internal'));
 app.get('/v/:code',      require('./views/voucherView'));

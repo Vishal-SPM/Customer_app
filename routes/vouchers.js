@@ -120,14 +120,15 @@ router.post('/create', requireApiKey, async (req, res) => {
     return res.status(400).json({ error: 'site_id is required — this program uses site-level restriction' });
   }
 
-  // Verify service is mapped to this program
+  // Verify service is mapped to this program and get billing config
   const { rows: svcCheck } = await pool.query(
-    'SELECT 1 FROM program_services WHERE program_id=$1 AND service_id=$2',
+    'SELECT billing_model, unit_price, discount_value FROM program_services WHERE program_id=$1 AND service_id=$2',
     [program.id, service_id]
   );
   if (!svcCheck.length) {
     return res.status(400).json({ error: 'This service is not configured for this program' });
   }
+  const billing = svcCheck[0];
 
   const code        = await uniqueCode(program.code_prefix);
   const expiry_date = addDays(start_date, program.validity_days);
@@ -140,6 +141,15 @@ router.post('/create', requireApiKey, async (req, res) => {
       pax_count || 1, start_date, expiry_date]);
 
   const voucher = rows[0];
+
+  // Log issuance billing event immediately on voucher creation
+  if (billing.billing_model === 'issuance') {
+    pool.query(
+      `INSERT INTO billing_events (id, voucher_id, program_id, service_id, outlet_id, billing_model, unit_price, billed_amount, event_type)
+       VALUES ($1,$2,$3,$4,$5,'issuance',$6,$6,'issuance')`,
+      [uuid(), voucher.id, program.id, service_id, outlet_id || null, parseFloat(billing.unit_price) || 0]
+    ).catch(() => {});
+  }
 
   // Fire notification (non-blocking)
   pool.query('SELECT name FROM services WHERE id=$1', [service_id]).then(({ rows: sr }) => {
@@ -238,15 +248,32 @@ router.post('/validate', requireVendorKey, async (req, res) => {
 // ── POST /api/voucher/redeem ──────────────────────────────────────────────────
 // Step 2 of redemption: consume temp_auth, mark voucher redeemed (vendor API key required)
 router.post('/redeem', requireVendorKey, async (req, res) => {
-  const { temp_auth_id, pax_count, outlet_id } = req.body;
+  const { temp_auth_id, pax_count, outlet_id, actual_bill_amount } = req.body;
   if (!temp_auth_id) return res.status(400).json({ success: false, error: 'temp_auth_id is required' });
 
   const { rows: authRows } = await pool.query('SELECT * FROM temp_auths WHERE id=$1', [temp_auth_id]);
   if (!authRows.length) return res.status(404).json({ success: false, error: 'Invalid temp_auth_id' });
 
   const auth = authRows[0];
-  if (auth.used)                            return res.status(409).json({ success: false, error: 'temp_auth already used' });
+  if (auth.used)                              return res.status(409).json({ success: false, error: 'temp_auth already used' });
   if (new Date(auth.expires_at) < new Date()) return res.status(422).json({ success: false, error: 'temp_auth expired — re-validate the voucher' });
+
+  // Fetch voucher + billing config
+  const { rows: vRows } = await pool.query('SELECT * FROM vouchers WHERE id=$1', [auth.voucher_id]);
+  const voucher = vRows[0];
+
+  const { rows: billingRows } = await pool.query(
+    'SELECT billing_model, unit_price, discount_value FROM program_services WHERE program_id=$1 AND service_id=$2',
+    [voucher.program_id, voucher.service_id]
+  );
+  const billing = billingRows[0] || { billing_model: 'issuance', unit_price: 0, discount_value: null };
+
+  // Discount model requires actual_bill_amount from POS
+  if (billing.billing_model === 'discount') {
+    if (actual_bill_amount === undefined || actual_bill_amount === null) {
+      return res.status(400).json({ success: false, error: 'actual_bill_amount is required for discount-model services' });
+    }
+  }
 
   // If outlet_id provided, verify it belongs to this vendor
   if (outlet_id) {
@@ -256,34 +283,58 @@ router.post('/redeem', requireVendorKey, async (req, res) => {
     if (!outletRows.length) return res.status(403).json({ success: false, error: 'outlet_id does not belong to this vendor' });
   }
 
+  // Compute billing amounts
+  let billedAmount = 0;
+  let discountedAmount = null;
+  if (billing.billing_model === 'discount') {
+    discountedAmount = Math.min(parseFloat(billing.discount_value), parseFloat(actual_bill_amount));
+    billedAmount     = discountedAmount;
+  } else if (billing.billing_model === 'redemption') {
+    billedAmount = parseFloat(billing.unit_price) || 0;
+  }
+  // issuance: billing event already logged at create; billedAmount = 0 here (no new event)
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     await client.query('UPDATE vouchers SET status=$1, redeemed_at=NOW() WHERE id=$2', ['redeemed', auth.voucher_id]);
     await client.query('UPDATE temp_auths SET used=TRUE WHERE id=$1', [temp_auth_id]);
     await client.query(
-      'INSERT INTO redemptions (id, voucher_id, temp_auth_id, pax_count, outlet_id, vendor_id) VALUES ($1,$2,$3,$4,$5,$6)',
-      [uuid(), auth.voucher_id, temp_auth_id, pax_count || 1, outlet_id || null, req.vendor.id]
+      `INSERT INTO redemptions (id, voucher_id, temp_auth_id, pax_count, outlet_id, vendor_id, actual_bill_amount, discounted_amount)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [uuid(), auth.voucher_id, temp_auth_id, pax_count || 1, outlet_id || null, req.vendor.id,
+       actual_bill_amount !== undefined ? parseFloat(actual_bill_amount) : null,
+       discountedAmount]
     );
+
+    // Log billing event for redemption / discount models
+    if (billing.billing_model === 'redemption' || billing.billing_model === 'discount') {
+      await client.query(
+        `INSERT INTO billing_events (id, voucher_id, program_id, service_id, outlet_id, billing_model, unit_price, actual_bill_amount, billed_amount, event_type)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'redemption')`,
+        [uuid(), auth.voucher_id, voucher.program_id, voucher.service_id, outlet_id || null,
+         billing.billing_model, parseFloat(billing.unit_price) || 0,
+         actual_bill_amount !== undefined ? parseFloat(actual_bill_amount) : null,
+         billedAmount]
+      );
+    }
+
     await client.query('COMMIT');
 
     // Fire notification (non-blocking)
     pool.query(`
       SELECT v.*, o.name AS outlet_name
-      FROM vouchers v
-      LEFT JOIN outlets o ON o.id = $2
-      WHERE v.id = $1
+      FROM vouchers v LEFT JOIN outlets o ON o.id = $2 WHERE v.id = $1
     `, [auth.voucher_id, outlet_id || null]).then(({ rows: vr }) => {
-      if (vr[0]) {
-        notify(auth.voucher_id, 'voucher_redeemed', {
-          ...vr[0],
-          outlet_name: vr[0].outlet_name || null,
-          vendor_name: req.vendor.name
-        });
-      }
+      if (vr[0]) notify(auth.voucher_id, 'voucher_redeemed', { ...vr[0], outlet_name: vr[0].outlet_name || null, vendor_name: req.vendor.name });
     }).catch(() => {});
 
-    res.json({ success: true, message: 'Voucher redeemed successfully', redeemed_at: new Date().toISOString(), vendor: req.vendor.name });
+    const resp = { success: true, message: 'Voucher redeemed successfully', redeemed_at: new Date().toISOString(), vendor: req.vendor.name };
+    if (billing.billing_model === 'discount') {
+      resp.discount_applied = discountedAmount;
+      resp.customer_pays    = Math.max(0, parseFloat(actual_bill_amount) - discountedAmount);
+    }
+    res.json(resp);
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;

@@ -85,6 +85,7 @@ async function onSectionEnter(name) {
   if (name === 'reports-history')  { populateReportFilters(); await loadReportHistory(); }
   if (name === 'reports-vouchers')      { populateReportFilters(); await loadReportVouchers(); }
   if (name === 'reports-notifications') { await loadReportNotifications(); }
+  if (name === 'reports-billing')       { populateReportFilters(); await loadBillingReport(); }
 }
 
 /* ── Permission gating ────────────────────────────────────────────── */
@@ -544,11 +545,24 @@ async function loadCfgProgram(id) {
       </div>`).join('')
     : '<p style="color:#94a3b8;font-style:italic">No outlets mapped yet</p>';
 
+  const billingTagColor = { issuance: '#6366f1', redemption: '#22c55e', discount: '#f59e0b' };
   document.getElementById('cfg-services-list').innerHTML = services.length
-    ? services.map(sv => `<div class="row-item">
-        <div class="row-main"><div class="row-name">${esc(sv.name)}</div></div>
-        ${canEdit ? `<button class="btn-danger" onclick="removeProgramService('${id}','${sv.id}')">Remove</button>` : ''}
-      </div>`).join('')
+    ? services.map(sv => {
+        const model    = sv.billing_model || 'issuance';
+        const tagColor = billingTagColor[model] || '#64748b';
+        const detail   = model === 'discount'
+          ? `Ceiling ₹${sv.discount_value}`
+          : `₹${sv.unit_price}/use`;
+        return `<div class="row-item">
+          <div class="row-main">
+            <div class="row-name">${esc(sv.name)}
+              <span class="tag" style="background:${tagColor}22;color:${tagColor};border-color:${tagColor}55">${model}</span>
+              <span style="font-size:11px;color:#64748b">${detail}</span>
+            </div>
+          </div>
+          ${canEdit ? `<button class="btn-danger" onclick="removeProgramService('${id}','${sv.id}')">Remove</button>` : ''}
+        </div>`;
+      }).join('')
     : '<p style="color:#94a3b8;font-style:italic">No services mapped yet</p>';
 
   document.getElementById('cfg-restriction-select').value = prog.restriction_level;
@@ -585,7 +599,7 @@ function populateReportFilters() {
   const programs = [{ id: '', name: 'All Programs' }, ...S.programs];
   const vendors  = [{ id: '', name: 'All Vendors' },  ...S.vendors];
 
-  ['rpt-sum-program', 'rpt-hist-program', 'rpt-vch-program'].forEach(id => {
+  ['rpt-sum-program', 'rpt-hist-program', 'rpt-vch-program', 'rpt-bill-program'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     const cur = el.value;
@@ -1612,14 +1626,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     toast('Outlet mapped'); loadCfgProgram(pid);
   });
 
-  // ── Configure: map service
+  // ── Configure: map service (with billing model)
   document.getElementById('form-cfg-service').addEventListener('submit', async e => {
     e.preventDefault();
     const fd  = formData(e.target);
     const pid = S.currentProgram?.id;
     if (!pid) return toast('Select a program first', 'error');
-    await POST(`/api/programs/${pid}/services`, { service_id: fd.service_id });
-    toast('Service mapped'); loadCfgProgram(pid);
+    if (!fd.service_id) return toast('Select a service', 'error');
+    const model = fd.billing_model || 'issuance';
+    if (model !== 'discount' && (!fd.unit_price || parseFloat(fd.unit_price) < 0)) {
+      return toast('Enter a billing rate (0 for complimentary)', 'error');
+    }
+    if (model === 'discount' && (!fd.discount_value || parseFloat(fd.discount_value) <= 0)) {
+      return toast('Enter a discount ceiling greater than 0', 'error');
+    }
+    await POST(`/api/programs/${pid}/services`, {
+      service_id:     fd.service_id,
+      billing_model:  model,
+      unit_price:     parseFloat(fd.unit_price) || 0,
+      discount_value: model === 'discount' ? parseFloat(fd.discount_value) : null,
+    });
+    toast('Service mapped'); e.target.reset(); document.getElementById('cfg-billing-model').value = 'issuance'; cfgToggleBillingFields(); loadCfgProgram(pid);
   });
 
   // ── Configure: restriction level
@@ -1789,6 +1816,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-rpt-hist-load')?.addEventListener('click', loadReportHistory);
   document.getElementById('btn-rpt-vch-load')?.addEventListener('click',   loadReportVouchers);
   document.getElementById('btn-rpt-notif-load')?.addEventListener('click', loadReportNotifications);
+  document.getElementById('btn-rpt-bill-load')?.addEventListener('click', loadBillingReport);
+  document.getElementById('btn-rpt-bill-csv')?.addEventListener('click',  exportBillingCsv);
 
   // Set today's date as default for voucher start date
   const startDateInput = document.querySelector('#form-voucher [name=start_date]');
@@ -1801,6 +1830,80 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   showSection(firstAccessible || 'clients');
 });
+
+/* ── Configure: billing model toggle ─────────────────────────────── */
+function cfgToggleBillingFields() {
+  const model = document.getElementById('cfg-billing-model')?.value;
+  const unitRow     = document.getElementById('cfg-unit-price-row');
+  const discountRow = document.getElementById('cfg-discount-value-row');
+  if (!unitRow || !discountRow) return;
+  unitRow.classList.toggle('hidden',    model === 'discount');
+  discountRow.classList.toggle('hidden', model !== 'discount');
+}
+
+/* ── Billing Transactions report ──────────────────────────────────── */
+async function loadBillingReport() {
+  const q = buildQuery({
+    program_id:    document.getElementById('rpt-bill-program')?.value,
+    billing_model: document.getElementById('rpt-bill-model')?.value,
+    date_from:     document.getElementById('rpt-bill-from')?.value,
+    date_to:       document.getElementById('rpt-bill-to')?.value,
+    limit: 300
+  });
+  const data = await GET(`/api/billing/transactions${q}`);
+  if (!data) return;
+
+  const modelColor = { issuance: '#6366f1', redemption: '#22c55e', discount: '#f59e0b' };
+  document.getElementById('rpt-bill-count').textContent = `${data.total} event(s) found`;
+
+  document.getElementById('rpt-bill-summary').innerHTML = [
+    { label: 'Total Events',    value: data.total,        color: '#6366f1' },
+    { label: 'Total Billed (₹)', value: `₹${parseFloat(data.total_billed||0).toLocaleString('en-IN',{minimumFractionDigits:2})}`, color: '#22c55e' },
+  ].map(c => `<div style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px 24px;text-align:center;min-width:160px">
+    <div style="font-size:22px;font-weight:700;color:${c.color}">${c.value}</div>
+    <div style="font-size:11px;color:#64748b;margin-top:4px;text-transform:uppercase;letter-spacing:.5px">${c.label}</div>
+  </div>`).join('');
+
+  document.getElementById('rpt-bill-table').innerHTML = data.rows.length
+    ? `<table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="border-bottom:1px solid #334155;color:#64748b;text-align:left">
+          <th style="padding:6px 8px">Date/Time</th>
+          <th style="padding:6px 8px">Voucher</th>
+          <th style="padding:6px 8px">Passenger</th>
+          <th style="padding:6px 8px">Program</th>
+          <th style="padding:6px 8px">Service</th>
+          <th style="padding:6px 8px">Model</th>
+          <th style="padding:6px 8px">Unit (₹)</th>
+          <th style="padding:6px 8px">Actual Bill (₹)</th>
+          <th style="padding:6px 8px;font-weight:700;color:#e2e8f0">Billed to Client (₹)</th>
+        </tr></thead>
+        <tbody>${data.rows.map(r => {
+          const col = modelColor[r.billing_model] || '#94a3b8';
+          return `<tr style="border-bottom:1px solid #1e293b">
+            <td style="padding:6px 8px;color:#94a3b8;white-space:nowrap">${new Date(r.event_at).toLocaleString()}</td>
+            <td style="padding:6px 8px;font-family:monospace;font-size:11px">${esc(r.voucher_code)}</td>
+            <td style="padding:6px 8px">${esc(r.passenger_name)}</td>
+            <td style="padding:6px 8px">${esc(r.program_name)} <span style="color:#64748b;font-size:11px">${esc(r.client_name)}</span></td>
+            <td style="padding:6px 8px">${esc(r.service_name)}</td>
+            <td style="padding:6px 8px"><span class="tag" style="background:${col}22;color:${col};border-color:${col}55">${esc(r.billing_model)}</span></td>
+            <td style="padding:6px 8px;color:#64748b">${r.unit_price != null ? '₹'+r.unit_price : '—'}</td>
+            <td style="padding:6px 8px;color:#64748b">${r.actual_bill_amount != null ? '₹'+r.actual_bill_amount : '—'}</td>
+            <td style="padding:6px 8px;font-weight:700;color:#22c55e">₹${r.billed_amount}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`
+    : '<p style="color:#94a3b8;font-style:italic;padding:8px 0">No billing events for the selected filters</p>';
+}
+
+function exportBillingCsv() {
+  const q = buildQuery({
+    program_id:    document.getElementById('rpt-bill-program')?.value,
+    billing_model: document.getElementById('rpt-bill-model')?.value,
+    date_from:     document.getElementById('rpt-bill-from')?.value,
+    date_to:       document.getElementById('rpt-bill-to')?.value,
+  });
+  window.location.href = `/api/billing/transactions/csv${q}`;
+}
 
 function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');

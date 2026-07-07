@@ -108,20 +108,36 @@ router.delete('/:id/outlets/:outlet_id', requirePermission('programs:edit'), asy
 
 // POST /api/programs/:id/services
 router.post('/:id/services', requirePermission('programs:edit'), async (req, res) => {
-  const { service_id } = req.body;
+  const { service_id, billing_model, unit_price, discount_value } = req.body;
   if (!service_id) return res.status(400).json({ error: 'service_id is required' });
-  await pool.query(
-    'INSERT INTO program_services (program_id, service_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
-    [req.params.id, service_id]
-  );
+
+  const model = billing_model || 'issuance';
+  if (!['issuance', 'redemption', 'discount'].includes(model)) {
+    return res.status(400).json({ error: 'billing_model must be issuance, redemption, or discount' });
+  }
+  if (model === 'discount' && (discount_value === undefined || discount_value === null)) {
+    return res.status(400).json({ error: 'discount_value is required for discount billing model' });
+  }
+
+  await pool.query(`
+    INSERT INTO program_services (program_id, service_id, billing_model, unit_price, discount_value)
+    VALUES ($1,$2,$3,$4,$5)
+    ON CONFLICT (program_id, service_id) DO UPDATE
+      SET billing_model  = EXCLUDED.billing_model,
+          unit_price     = EXCLUDED.unit_price,
+          discount_value = EXCLUDED.discount_value
+  `, [req.params.id, service_id, model, parseFloat(unit_price) || 0,
+      model === 'discount' ? parseFloat(discount_value) : null]);
+
   res.status(201).json({ message: 'Service mapped to program' });
 });
 
 // GET /api/programs/:id/services
 router.get('/:id/services', requirePermission('programs:view'), async (req, res) => {
   const { rows } = await pool.query(`
-    SELECT sv.* FROM services sv
-    JOIN program_services ps ON ps.service_id = sv.id
+    SELECT sv.*, ps.billing_model, ps.unit_price, ps.discount_value
+    FROM services sv
+    JOIN program_services ps ON ps.service_id = sv.id AND ps.program_id = $1
     WHERE ps.program_id = $1 ORDER BY sv.name
   `, [req.params.id]);
   res.json(rows);
