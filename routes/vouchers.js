@@ -48,6 +48,18 @@ async function requireVendorKey(req, res, next) {
   next();
 }
 
+// ── GET /api/voucher/services ─────────────────────────────────────────────────
+// Returns services available for this program (for external client discovery).
+router.get('/services', requireApiKey, async (req, res) => {
+  const { rows } = await pool.query(`
+    SELECT sv.id, sv.name, sv.description, sv.service_type, ps.discount_value
+    FROM services sv
+    JOIN program_services ps ON ps.service_id = sv.id AND ps.program_id = $1
+    ORDER BY sv.name
+  `, [req.program.id]);
+  res.json({ program: req.program.name, services: rows });
+});
+
 // ── GET /api/voucher/locations ────────────────────────────────────────────────
 // Returns airports that have outlets mapped to this program providing this service.
 router.get('/locations', requireApiKey, async (req, res) => {
@@ -59,8 +71,8 @@ router.get('/locations', requireApiKey, async (req, res) => {
            COUNT(DISTINCT o.id)::int AS outlet_count
     FROM sites s
     JOIN outlets o ON o.site_id = s.id
-    JOIN program_outlets po ON po.outlet_id = o.id AND po.program_id = $1
-    JOIN outlet_services os ON os.outlet_id = o.id AND os.service_id = $2
+    JOIN program_outlet_services pos
+      ON pos.outlet_id = o.id AND pos.program_id = $1 AND pos.service_id = $2
     GROUP BY s.id, s.name, s.iata_code, s.city, s.country
     ORDER BY s.name
   `, [req.program.id, service_id]);
@@ -83,11 +95,11 @@ router.post('/outlets', requireApiKey, async (req, res) => {
     SELECT o.id, o.name, o.terminal_type, o.terminal_name, o.gate_type,
            o.direction, o.amenities, o.requires_boarding_pass,
            s.id AS site_id, s.name AS site_name, s.iata_code,
-           po.price AS program_price
+           pos.price AS program_price
     FROM outlets o
-    JOIN sites s            ON s.id = o.site_id
-    JOIN program_outlets po ON po.outlet_id = o.id  AND po.program_id = $1
-    JOIN outlet_services os ON os.outlet_id = o.id  AND os.service_id = $2
+    JOIN sites s ON s.id = o.site_id
+    JOIN program_outlet_services pos
+      ON pos.outlet_id = o.id AND pos.program_id = $1 AND pos.service_id = $2
     WHERE s.iata_code = $3
     ORDER BY o.name
   `, [program_id, service_id, iata_code.toUpperCase()]);
@@ -160,17 +172,28 @@ router.post('/create', requireApiKey, async (req, res) => {
     });
   }).catch(() => {});
 
-  // Resolve which outlets this voucher is valid at
+  // Resolve which outlets this voucher is valid at (filtered to voucher's service)
   let outletQuery, outletParams;
   if (program.restriction_level === 'outlet') {
     outletQuery  = 'SELECT o.*, s.name AS site_name, s.iata_code FROM outlets o JOIN sites s ON s.id=o.site_id WHERE o.id=$1';
     outletParams = [outlet_id];
   } else if (program.restriction_level === 'site') {
-    outletQuery  = `SELECT o.*, s.name AS site_name, s.iata_code FROM outlets o JOIN sites s ON s.id=o.site_id JOIN program_outlets po ON po.outlet_id=o.id WHERE po.program_id=$1 AND o.site_id=$2 ORDER BY o.name`;
-    outletParams = [program.id, site_id];
+    outletQuery  = `
+      SELECT o.*, s.name AS site_name, s.iata_code
+      FROM outlets o
+      JOIN sites s ON s.id = o.site_id
+      JOIN program_outlet_services pos ON pos.outlet_id = o.id AND pos.program_id = $1 AND pos.service_id = $2
+      WHERE o.site_id = $3
+      ORDER BY o.name`;
+    outletParams = [program.id, service_id, site_id];
   } else {
-    outletQuery  = `SELECT o.*, s.name AS site_name, s.iata_code FROM outlets o JOIN sites s ON s.id=o.site_id JOIN program_outlets po ON po.outlet_id=o.id WHERE po.program_id=$1 ORDER BY s.name, o.name`;
-    outletParams = [program.id];
+    outletQuery  = `
+      SELECT o.*, s.name AS site_name, s.iata_code
+      FROM outlets o
+      JOIN sites s ON s.id = o.site_id
+      JOIN program_outlet_services pos ON pos.outlet_id = o.id AND pos.program_id = $1 AND pos.service_id = $2
+      ORDER BY s.name, o.name`;
+    outletParams = [program.id, service_id];
   }
   const { rows: outlets } = await pool.query(outletQuery, outletParams);
 

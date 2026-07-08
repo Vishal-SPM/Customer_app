@@ -1955,8 +1955,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const services = await GET(`/api/programs/${prog.id}/services`);
     svcSel.disabled = false;
+    const typeLabel = { qr: 'QR', booking: 'Booking', discount_voucher: 'Discount' };
     svcSel.innerHTML = '<option value="">— select service —</option>' +
-      (services || []).map(sv => `<option value="${sv.id}">${esc(sv.name)}</option>`).join('');
+      (services || []).map(sv =>
+        `<option value="${sv.id}">${esc(sv.name)} · ${typeLabel[sv.service_type] || sv.service_type}</option>`
+      ).join('');
   });
 
   // ── Voucher: fetch locations button
