@@ -61,48 +61,43 @@ router.get('/services', requireApiKey, async (req, res) => {
 });
 
 // ── GET /api/voucher/locations ────────────────────────────────────────────────
-// Returns airports that have outlets mapped to this program providing this service.
+// Returns airports that have any outlet mapped to this program.
 router.get('/locations', requireApiKey, async (req, res) => {
-  const { service_id } = req.query;
-  if (!service_id) return res.status(400).json({ error: 'service_id is required' });
-
   const { rows } = await pool.query(`
     SELECT s.id, s.name, s.iata_code, s.city, s.country,
            COUNT(DISTINCT o.id)::int AS outlet_count
     FROM sites s
     JOIN outlets o ON o.site_id = s.id
-    JOIN program_outlet_services pos
-      ON pos.outlet_id = o.id AND pos.program_id = $1 AND pos.service_id = $2
+    JOIN (SELECT DISTINCT outlet_id FROM program_outlet_services WHERE program_id = $1) pos
+      ON pos.outlet_id = o.id
     GROUP BY s.id, s.name, s.iata_code, s.city, s.country
     ORDER BY s.name
-  `, [req.program.id, service_id]);
+  `, [req.program.id]);
 
-  res.json({ program: req.program.name, service_id, locations: rows });
+  res.json({ program: req.program.name, locations: rows });
 });
 
 // ── POST /api/voucher/outlets ─────────────────────────────────────────────────
-// Request body: { program_id, service_id, iata_code }
-// Returns outlets at that airport mapped to the program providing that service.
+// Request body: { program_id, iata_code }
+// Returns outlets at that airport mapped to this program.
 router.post('/outlets', requireApiKey, async (req, res) => {
-  const { program_id, service_id, iata_code } = req.body;
+  const { program_id, iata_code } = req.body;
 
   if (!program_id)           return res.status(400).json({ error: 'program_id is required' });
-  if (!service_id)           return res.status(400).json({ error: 'service_id is required' });
   if (!iata_code)            return res.status(400).json({ error: 'iata_code is required' });
   if (program_id !== req.program.id) return res.status(403).json({ error: 'program_id does not match API key' });
 
   const { rows } = await pool.query(`
-    SELECT o.id, o.name, o.terminal_type, o.terminal_name, o.gate_type,
+    SELECT DISTINCT o.id, o.name, o.terminal_type, o.terminal_name, o.gate_type,
            o.direction, o.amenities, o.requires_boarding_pass,
-           s.id AS site_id, s.name AS site_name, s.iata_code,
-           pos.price AS program_price
+           s.id AS site_id, s.name AS site_name, s.iata_code
     FROM outlets o
     JOIN sites s ON s.id = o.site_id
-    JOIN program_outlet_services pos
-      ON pos.outlet_id = o.id AND pos.program_id = $1 AND pos.service_id = $2
-    WHERE s.iata_code = $3
+    JOIN (SELECT DISTINCT outlet_id FROM program_outlet_services WHERE program_id = $1) pos
+      ON pos.outlet_id = o.id
+    WHERE s.iata_code = $2
     ORDER BY o.name
-  `, [program_id, service_id, iata_code.toUpperCase()]);
+  `, [program_id, iata_code.toUpperCase()]);
 
   res.json({
     program_id,
@@ -113,13 +108,13 @@ router.post('/outlets', requireApiKey, async (req, res) => {
 });
 
 // ── POST /api/voucher/create ──────────────────────────────────────────────────
-// Request body: { program_id, service_id, passenger_name, pax_count, start_date, outlet_id? }
+// Request body: { program_id, passenger_name, pax_count, start_date, outlet_id?, site_id? }
+// service_id is not required at creation — determined at redemption by the outlet.
 router.post('/create', requireApiKey, async (req, res) => {
-  const { program_id, service_id, passenger_name, passenger_email, passenger_phone, pax_count, start_date, outlet_id, site_id } = req.body;
+  const { program_id, passenger_name, passenger_email, passenger_phone, pax_count, start_date, outlet_id, site_id } = req.body;
   const program = req.program;
 
   if (!program_id)               return res.status(400).json({ error: 'program_id is required' });
-  if (!service_id)               return res.status(400).json({ error: 'service_id is required' });
   if (!passenger_name)           return res.status(400).json({ error: 'passenger_name is required' });
   if (!start_date)               return res.status(400).json({ error: 'start_date is required' });
   if (program_id !== program.id) return res.status(403).json({ error: 'program_id does not match API key' });
@@ -132,68 +127,47 @@ router.post('/create', requireApiKey, async (req, res) => {
     return res.status(400).json({ error: 'site_id is required — this program uses site-level restriction' });
   }
 
-  // Verify service is mapped to this program and get billing config
-  const { rows: svcCheck } = await pool.query(
-    'SELECT billing_model, unit_price, discount_value FROM program_services WHERE program_id=$1 AND service_id=$2',
-    [program.id, service_id]
-  );
-  if (!svcCheck.length) {
-    return res.status(400).json({ error: 'This service is not configured for this program' });
-  }
-  const billing = svcCheck[0];
-
   const code        = await uniqueCode(program.code_prefix);
   const expiry_date = addDays(start_date, program.validity_days);
 
   const { rows } = await pool.query(`
-    INSERT INTO vouchers (id, program_id, service_id, outlet_id, site_id, code, passenger_name, passenger_email, passenger_phone, pax_count, start_date, expiry_date)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *
-  `, [uuid(), program.id, service_id, outlet_id || null, site_id || null,
+    INSERT INTO vouchers (id, program_id, outlet_id, site_id, code, passenger_name, passenger_email, passenger_phone, pax_count, start_date, expiry_date)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *
+  `, [uuid(), program.id, outlet_id || null, site_id || null,
       code, passenger_name, passenger_email || null, passenger_phone || null,
       pax_count || 1, start_date, expiry_date]);
 
   const voucher = rows[0];
 
-  // Log issuance billing event immediately on voucher creation
-  if (billing.billing_model === 'issuance') {
-    pool.query(
-      `INSERT INTO billing_events (id, voucher_id, program_id, service_id, outlet_id, billing_model, unit_price, billed_amount, event_type)
-       VALUES ($1,$2,$3,$4,$5,'issuance',$6,$6,'issuance')`,
-      [uuid(), voucher.id, program.id, service_id, outlet_id || null, parseFloat(billing.unit_price) || 0]
-    ).catch(() => {});
-  }
-
   // Fire notification (non-blocking)
-  pool.query('SELECT name FROM services WHERE id=$1', [service_id]).then(({ rows: sr }) => {
-    notify(voucher.id, 'voucher_created', {
-      ...voucher,
-      service_name: sr[0]?.name || '',
-      program_name: program.name
-    });
-  }).catch(() => {});
+  notify(voucher.id, 'voucher_created', {
+    ...voucher,
+    service_name: '',
+    program_name: program.name
+  });
 
-  // Resolve which outlets this voucher is valid at (filtered to voucher's service)
+  // Resolve which outlets this voucher is valid at
   let outletQuery, outletParams;
   if (program.restriction_level === 'outlet') {
     outletQuery  = 'SELECT o.*, s.name AS site_name, s.iata_code FROM outlets o JOIN sites s ON s.id=o.site_id WHERE o.id=$1';
     outletParams = [outlet_id];
   } else if (program.restriction_level === 'site') {
     outletQuery  = `
-      SELECT o.*, s.name AS site_name, s.iata_code
+      SELECT DISTINCT o.*, s.name AS site_name, s.iata_code
       FROM outlets o
       JOIN sites s ON s.id = o.site_id
-      JOIN program_outlet_services pos ON pos.outlet_id = o.id AND pos.program_id = $1 AND pos.service_id = $2
-      WHERE o.site_id = $3
+      JOIN (SELECT DISTINCT outlet_id FROM program_outlet_services WHERE program_id = $1) pos ON pos.outlet_id = o.id
+      WHERE o.site_id = $2
       ORDER BY o.name`;
-    outletParams = [program.id, service_id, site_id];
+    outletParams = [program.id, site_id];
   } else {
     outletQuery  = `
-      SELECT o.*, s.name AS site_name, s.iata_code
+      SELECT DISTINCT o.*, s.name AS site_name, s.iata_code
       FROM outlets o
       JOIN sites s ON s.id = o.site_id
-      JOIN program_outlet_services pos ON pos.outlet_id = o.id AND pos.program_id = $1 AND pos.service_id = $2
+      JOIN (SELECT DISTINCT outlet_id FROM program_outlet_services WHERE program_id = $1) pos ON pos.outlet_id = o.id
       ORDER BY s.name, o.name`;
-    outletParams = [program.id, service_id];
+    outletParams = [program.id];
   }
   const { rows: outlets } = await pool.query(outletQuery, outletParams);
 
@@ -224,7 +198,7 @@ router.get('/list', requireApiKey, async (req, res) => {
     SELECT v.*, sv.name AS service_name,
            o.name AS outlet_name, s.name AS site_name, s.iata_code
     FROM vouchers v
-    JOIN services sv ON sv.id = v.service_id
+    LEFT JOIN services sv ON sv.id = v.service_id
     LEFT JOIN outlets o ON o.id = v.outlet_id
     LEFT JOIN sites s ON s.id = COALESCE(v.site_id, o.site_id)
     WHERE v.program_id=$1 ${filter}
@@ -281,15 +255,30 @@ router.post('/redeem', requireVendorKey, async (req, res) => {
   if (auth.used)                              return res.status(409).json({ success: false, error: 'temp_auth already used' });
   if (new Date(auth.expires_at) < new Date()) return res.status(422).json({ success: false, error: 'temp_auth expired — re-validate the voucher' });
 
-  // Fetch voucher + billing config
+  // Fetch voucher
   const { rows: vRows } = await pool.query('SELECT * FROM vouchers WHERE id=$1', [auth.voucher_id]);
   const voucher = vRows[0];
 
-  const { rows: billingRows } = await pool.query(
-    'SELECT billing_model, unit_price, discount_value FROM program_services WHERE program_id=$1 AND service_id=$2',
-    [voucher.program_id, voucher.service_id]
-  );
-  const billing = billingRows[0] || { billing_model: 'issuance', unit_price: 0, discount_value: null };
+  // Resolve service_id: prefer voucher's (legacy), then request body, then auto-detect from outlet
+  let effectiveServiceId = voucher.service_id || req.body.service_id || null;
+  if (!effectiveServiceId && outlet_id) {
+    const { rows: autoSvc } = await pool.query(
+      `SELECT service_id FROM program_outlet_services
+       WHERE program_id=$1 AND outlet_id=$2 LIMIT 1`,
+      [voucher.program_id, outlet_id]
+    );
+    if (autoSvc.length) effectiveServiceId = autoSvc[0].service_id;
+  }
+
+  // Fetch billing config (graceful if service unknown)
+  let billing = { billing_model: 'issuance', unit_price: 0, discount_value: null };
+  if (effectiveServiceId) {
+    const { rows: billingRows } = await pool.query(
+      'SELECT billing_model, unit_price, discount_value FROM program_services WHERE program_id=$1 AND service_id=$2',
+      [voucher.program_id, effectiveServiceId]
+    );
+    if (billingRows.length) billing = billingRows[0];
+  }
 
   // Discount model requires actual_bill_amount from POS
   if (billing.billing_model === 'discount') {
@@ -331,11 +320,11 @@ router.post('/redeem', requireVendorKey, async (req, res) => {
     );
 
     // Log billing event for redemption / discount models
-    if (billing.billing_model === 'redemption' || billing.billing_model === 'discount') {
+    if (effectiveServiceId && (billing.billing_model === 'redemption' || billing.billing_model === 'discount')) {
       await client.query(
         `INSERT INTO billing_events (id, voucher_id, program_id, service_id, outlet_id, billing_model, unit_price, actual_bill_amount, billed_amount, event_type)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'redemption')`,
-        [uuid(), auth.voucher_id, voucher.program_id, voucher.service_id, outlet_id || null,
+        [uuid(), auth.voucher_id, voucher.program_id, effectiveServiceId, outlet_id || null,
          billing.billing_model, parseFloat(billing.unit_price) || 0,
          actual_bill_amount !== undefined ? parseFloat(actual_bill_amount) : null,
          billedAmount]

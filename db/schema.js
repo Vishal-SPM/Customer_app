@@ -194,6 +194,9 @@ async function createSchema() {
       -- Service type: qr | booking | discount_voucher
       ALTER TABLE services ADD COLUMN IF NOT EXISTS service_type TEXT NOT NULL DEFAULT 'qr';
 
+      -- Voucher service_id is now optional (service determined at redemption time)
+      ALTER TABLE vouchers ALTER COLUMN service_id DROP NOT NULL;
+
       -- Seed existing services to correct types
       UPDATE services SET service_type = 'booking'
         WHERE service_type = 'qr'

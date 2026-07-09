@@ -1647,11 +1647,10 @@ function applyVoucherRestriction(program) {
 
 async function fetchVoucherLocations() {
   const progId = document.getElementById('vch-program').value;
-  const svcId  = document.querySelector('#form-voucher [name=service_id]').value;
-  if (!progId || !svcId) { toast('Select program and service first', 'error'); return; }
+  if (!progId) { toast('Select a program first', 'error'); return; }
   const prog = S.programs.find(p => p.id === progId);
 
-  const res  = await fetch(`/api/voucher/locations?service_id=${svcId}`, { headers: { 'x-api-key': prog.api_key } });
+  const res  = await fetch('/api/voucher/locations', { headers: { 'x-api-key': prog.api_key } });
   const data = await res.json();
   const locs = data.locations || [];
 
@@ -1659,13 +1658,12 @@ async function fetchVoucherLocations() {
   sel.innerHTML = '<option value="">— select airport —</option>' +
     locs.map(l => `<option value="${l.id}" data-iata="${l.iata_code}">${esc(l.name)} (${l.iata_code}) — ${l.outlet_count} outlets</option>`).join('');
 
-  if (!locs.length) toast('No airports found for this program + service combination', 'error');
+  if (!locs.length) toast('No airports found for this program', 'error');
   else toast(`${locs.length} location(s) loaded`);
 }
 
 async function fetchVoucherOutlets() {
   const progId  = document.getElementById('vch-program').value;
-  const svcId   = document.querySelector('#form-voucher [name=service_id]').value;
   const siteSel = document.getElementById('vch-site');
   const siteId  = siteSel.value;
   const iata    = siteSel.options[siteSel.selectedIndex]?.dataset?.iata;
@@ -1675,7 +1673,7 @@ async function fetchVoucherOutlets() {
   const res  = await fetch('/api/voucher/outlets', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': prog.api_key },
-    body:    JSON.stringify({ program_id: progId, service_id: svcId, iata_code: iata })
+    body:    JSON.stringify({ program_id: progId, iata_code: iata })
   });
   const data = await res.json();
   const outs = data.outlets || [];
@@ -1946,20 +1944,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // ── Voucher: program select → load services + set restriction UI
-  document.getElementById('vch-program').addEventListener('change', async e => {
-    const prog   = S.programs.find(p => p.id === e.target.value);
-    const svcSel = document.getElementById('vch-service');
-    if (!prog) { svcSel.innerHTML = '<option value="">— select program first —</option>'; svcSel.disabled = true; document.getElementById('vch-restriction-badge').classList.add('hidden'); return; }
-
+  document.getElementById('vch-program').addEventListener('change', e => {
+    const prog = S.programs.find(p => p.id === e.target.value);
+    if (!prog) { document.getElementById('vch-restriction-badge').classList.add('hidden'); return; }
     applyVoucherRestriction(prog);
-
-    const services = await GET(`/api/programs/${prog.id}/services`);
-    svcSel.disabled = false;
-    const typeLabel = { qr: 'QR', booking: 'Booking', discount_voucher: 'Discount' };
-    svcSel.innerHTML = '<option value="">— select service —</option>' +
-      (services || []).map(sv =>
-        `<option value="${sv.id}">${esc(sv.name)} · ${typeLabel[sv.service_type] || sv.service_type}</option>`
-      ).join('');
   });
 
   // ── Voucher: fetch locations button
