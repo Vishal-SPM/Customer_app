@@ -834,8 +834,7 @@ const AIRPORTS = [
 const wikiImg = (file, w) => 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(file) + '?width=' + w;
 
 const SERVICE_IMAGES = {
-  lounge: '190209 TSR BusinessLounge.jpg',
-  meet: 'Austrian Lounge Reception.jpg'
+  lounge: '190209 TSR BusinessLounge.jpg'
 };
 
 const AIRPORT_IMAGES = {
@@ -1301,7 +1300,7 @@ class Component extends DCLogic {
       })),
       services: [
         { key: 'lounge', name: 'Airport Lounge', sub: 'Included visits across 8 airports', slot: 'svc-lounge', img: wikiImg(SERVICE_IMAGES.lounge, 600), hint: 'Drop a lounge interior photo', left: s.loungeLeft, total: 4 },
-        { key: 'meet', name: 'Meet & Assist', sub: 'Greeter, fast-track and porter', slot: 'svc-meet', img: wikiImg(SERVICE_IMAGES.meet, 600), hint: 'Drop a meet & assist photo', left: s.meetLeft, total: 2 }
+        { key: 'meet', name: 'Meet & Assist', sub: 'Greeter, fast-track and porter', slot: 'svc-meet', img: './assets/Fast-Track-DEL-Airport.jpg', hint: 'Drop a meet & assist photo', left: s.meetLeft, total: 2 }
       ].map(sv => ({
         name: sv.name, sub: sv.sub, slotId: sv.slot, slotHint: sv.hint, img: sv.img,
         go: () => this.setState({ screen: 'airports', service: sv.key, query: '' }),
