@@ -232,23 +232,66 @@
           </div>
         </div>
 
-        <div style="padding:18px 22px 0;">
-          <div style="position:relative; border-radius:16px; overflow:hidden; aspect-ratio:1.586/1; box-shadow:0 12px 28px oklch(0.22 0.02 250 / 0.24); background:linear-gradient(135deg, oklch(0.3 0.03 250), oklch(0.17 0.02 250) 58%, oklch(0.4 0.06 50));">
-            <div style="position:absolute; inset:0; padding:16px 18px; display:flex; flex-direction:column; justify-content:space-between;">
-              <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                <div style="font:700 12px -apple-system,sans-serif; letter-spacing:.02em; color:#fff; text-shadow:0 1px 3px oklch(0 0 0 / 0.5);">{{ bankName }}</div>
-                <div style="font:600 9.5px ui-monospace,monospace; letter-spacing:.14em; text-transform:uppercase; color:oklch(1 0 0 / 0.75); text-shadow:0 1px 3px oklch(0 0 0 / 0.5);">{{ cardTier }}</div>
+        <div style="padding:22px 22px 0;">
+          <div style="position:relative; width:78%;">
+            <div style="padding-top:63.03%;"></div>
+            <sc-for list="{{ stackLayers }}" as="ly" hint-placeholder-count="3">
+              <div onClick="{{ cycleWallet }}" style="{{ ly.style }}">
+                <sc-if value="{{ ly.isVisa }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:absolute; top:16px; left:16px; display:flex; flex-direction:column; gap:9px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c9a35a" stroke-width="2.2" stroke-linecap="round"><path d="M3 10a9 9 0 0 1 0 4"/><path d="M7 6a14 14 0 0 1 0 12"/><path d="M11 3a18 18 0 0 1 0 18"/></svg>
+                    <div style="width:26px; height:19px; border-radius:4px; background:linear-gradient(135deg, #e8c876, #a97c2f); position:relative;">
+                      <div style="position:absolute; inset:3px; border:1px solid rgba(0,0,0,.3); border-radius:2px;"></div>
+                    </div>
+                  </div>
+                  <div style="position:absolute; bottom:16px; left:16px; display:flex; align-items:center; gap:8px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24">
+                      <defs><linearGradient id="agGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f3dba3"/><stop offset="55%" stop-color="#c9a35a"/><stop offset="100%" stop-color="#8a611f"/></linearGradient></defs>
+                      <rect x="7" y="4" width="12" height="16" fill="none" stroke="url(#agGrad)" stroke-width="1.4"/>
+                      <path d="M19,3 L2,12 L19,21 L12,12 Z" fill="url(#agGrad)"/>
+                    </svg>
+                    <span style="font:700 11px -apple-system,sans-serif; letter-spacing:.02em; color:#c9a35a; white-space:nowrap;">Alliance Bank</span>
+                  </div>
+                  <div style="position:absolute; top:0; right:0; bottom:0; width:48px; display:flex; align-items:center; justify-content:center;">
+                    <div style="transform:rotate(90deg); display:flex; align-items:center; gap:9px; white-space:nowrap;">
+                      <span style="font:700 10px -apple-system,sans-serif; letter-spacing:.1em; color:#c9a35a; text-transform:uppercase;">{{ ly.name }}</span>
+                      <div style="display:flex; flex-direction:column; align-items:flex-start; line-height:1;">
+                        <span style="font:800 15px Georgia,'Times New Roman',serif; font-style:italic; color:#c9a35a;">VISA</span>
+                        <span style="font:400 7px -apple-system,sans-serif; letter-spacing:.16em; color:#c9a35a; margin-top:1px;">infinite</span>
+                      </div>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ ly.notVisa }}" hint-placeholder-val="{{ true }}">
+                  <div style="position:absolute; inset:0; padding:16px 18px; display:flex; flex-direction:column; justify-content:space-between;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                      <div style="font:700 12px -apple-system,sans-serif; letter-spacing:.02em; color:#fff; text-shadow:0 1px 3px oklch(0 0 0 / 0.5);">{{ ly.title }}</div>
+                      <div style="font:600 9.5px ui-monospace,monospace; letter-spacing:.14em; text-transform:uppercase; color:oklch(1 0 0 / 0.75); text-shadow:0 1px 3px oklch(0 0 0 / 0.5);">{{ ly.sub }}</div>
+                    </div>
+                    <div>
+                      <div style="font:600 15px ui-monospace,monospace; letter-spacing:.16em; color:#fff; text-shadow:0 1px 4px oklch(0 0 0 / 0.55);">•••• •••• •••• {{ ly.last4 }}</div>
+                      <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:11px;">
+                        <div style="font:600 11px -apple-system,sans-serif; text-transform:uppercase; letter-spacing:.06em; color:oklch(1 0 0 / 0.9); text-shadow:0 1px 3px oklch(0 0 0 / 0.5);">{{ ly.name }}</div>
+                        <div style="font:800 14px -apple-system,sans-serif; font-style:italic; letter-spacing:.04em; color:#fff; text-shadow:0 1px 3px oklch(0 0 0 / 0.5);">{{ ly.mark }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </sc-if>
               </div>
-              <div>
-                <div style="font:600 15px ui-monospace,monospace; letter-spacing:.16em; color:#fff; text-shadow:0 1px 4px oklch(0 0 0 / 0.55);">•••• •••• •••• {{ cardLast4 }}</div>
-                <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:11px;">
-                  <div style="font:600 11px -apple-system,sans-serif; text-transform:uppercase; letter-spacing:.06em; color:oklch(1 0 0 / 0.9); text-shadow:0 1px 3px oklch(0 0 0 / 0.5);">{{ cardNameDisplay }}</div>
-                  <div style="font:800 14px -apple-system,sans-serif; font-style:italic; letter-spacing:.04em; color:#fff; text-shadow:0 1px 3px oklch(0 0 0 / 0.5);">{{ networkMark }}</div>
-                </div>
-              </div>
-            </div>
+            </sc-for>
           </div>
-          <div style="font:400 11.5px/1.5 -apple-system,sans-serif; color:oklch(0.58 0.01 250); margin-top:11px;">Benefits read from this card · resets 31 Dec 2026</div>
+
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:30px;">
+            <div style="display:flex; align-items:center; gap:5px;">
+              <sc-for list="{{ walletDots }}" as="d" hint-placeholder-count="3">
+                <div style="{{ d.style }}"></div>
+              </sc-for>
+            </div>
+            <button type="button" onClick="{{ addExtraCard }}" style="flex:none; display:flex; align-items:center; gap:6px; border:1px solid oklch(0.55 0.09 50 / 0.35); background:oklch(0.55 0.09 50 / 0.08); border-radius:999px; padding:6px 12px 6px 7px; cursor:pointer;">
+              <span style="width:16px; height:16px; border-radius:50%; background:oklch(0.55 0.09 50); color:#fff; font-size:12px; line-height:16px; text-align:center; flex:none;">+</span>
+              <span style="font:600 12px -apple-system,sans-serif; color:oklch(0.5 0.09 50); white-space:nowrap;">Add card</span>
+            </button>
+          </div>
         </div>
 
         <sc-if value="{{ hasUpcoming }}" hint-placeholder-val="{{ false }}">
@@ -324,7 +367,7 @@
           <sc-for list="{{ airportList }}" as="a" hint-placeholder-count="8">
             <button type="button" onClick="{{ a.go }}" style="width:100%; display:flex; align-items:center; gap:13px; padding:15px 4px; border:none; border-bottom:1px solid oklch(0.95 0.01 250); background:none; cursor:pointer; text-align:left;" style-hover="{{ a.hover }}">
               <div style="position:relative; width:112px; height:74px; border-radius:12px; overflow:hidden; flex:none; background:oklch(0.93 0.01 250);">
-                <image-slot id="{{ a.slotId }}" shape="rect" fit="cover" placeholder="{{ a.city }}" style="position:absolute; inset:0; width:100%; height:100%;"></image-slot>
+                <image-slot id="{{ a.slotId }}" shape="rect" fit="cover" src="{{ a.img }}" placeholder="{{ a.city }}" style="position:absolute; inset:0; width:100%; height:100%;"></image-slot>
               </div>
               <div style="flex:1; min-width:0;">
                 <div style="display:flex; align-items:baseline; gap:7px;">
@@ -358,7 +401,7 @@
           <sc-for list="{{ loungeList }}" as="l" hint-placeholder-count="3">
             <button type="button" onClick="{{ l.go }}" style="border:1px solid oklch(0.92 0.01 250); background:#fff; border-radius:18px; overflow:hidden; padding:0; cursor:pointer; text-align:left; box-shadow:0 4px 14px oklch(0 0 0 / 0.04);">
               <div style="height:132px; position:relative; overflow:hidden; background:oklch(0.93 0.01 250);">
-                <image-slot id="{{ l.slotId }}" shape="rect" fit="cover" placeholder="Drop a photo of {{ l.name }}" style="position:absolute; inset:0; width:100%; height:100%;"></image-slot>
+                <image-slot id="{{ l.slotId }}" shape="rect" fit="cover" src="{{ l.img }}" placeholder="Drop a photo of {{ l.name }}" style="position:absolute; inset:0; width:100%; height:100%;"></image-slot>
                 <div style="position:absolute; top:11px; left:12px; padding:5px 9px; border-radius:999px; background:oklch(0.15 0.02 250 / 0.72); font:600 10px ui-monospace,monospace; letter-spacing:.1em; text-transform:uppercase; color:#fff; pointer-events:none;">{{ l.code }}</div>
               </div>
               <div style="padding:14px 16px 16px;">
@@ -383,7 +426,7 @@
     <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
       <div class="scr" style="flex:1; overflow-y:auto;">
         <div style="height:210px; position:relative; overflow:hidden; background:oklch(0.93 0.01 250);">
-          <image-slot id="{{ detailSlotId }}" shape="rect" fit="cover" placeholder="Drop a photo of this lounge" style="position:absolute; inset:0; width:100%; height:100%;"></image-slot>
+          <image-slot id="{{ detailSlotId }}" shape="rect" fit="cover" src="{{ detailImg }}" placeholder="Drop a photo of this lounge" style="position:absolute; inset:0; width:100%; height:100%;"></image-slot>
           <div style="position:absolute; bottom:14px; left:20px; padding:6px 11px; border-radius:999px; background:oklch(0.15 0.02 250 / 0.72); font:600 10px ui-monospace,monospace; letter-spacing:.1em; text-transform:uppercase; color:#fff; pointer-events:none;">{{ airportCode }} · {{ loungeHours }}</div>
           <button type="button" onClick="{{ goLounges }}" style="position:absolute; top:16px; left:16px; width:38px; height:38px; border-radius:50%; border:none; background:oklch(1 0 0 / 0.92); font-size:20px; color:oklch(0.3 0.01 250); cursor:pointer; box-shadow:0 2px 8px oklch(0 0 0 / 0.12);">‹</button>
         </div>
@@ -396,10 +439,6 @@
             </sc-for>
           </div>
           <div style="display:flex; gap:20px; margin-top:18px; padding:15px 0; border-top:1px solid oklch(0.94 0.01 250); border-bottom:1px solid oklch(0.94 0.01 250);">
-            <div>
-              <div style="font:600 10.5px ui-monospace,monospace; letter-spacing:.08em; text-transform:uppercase; color:oklch(0.58 0.01 250);">Hours</div>
-              <div style="font:600 13px -apple-system,sans-serif; color:oklch(0.25 0.01 250); margin-top:4px;">{{ loungeHours }}</div>
-            </div>
             <div>
               <div style="font:600 10.5px ui-monospace,monospace; letter-spacing:.08em; text-transform:uppercase; color:oklch(0.58 0.01 250);">Max stay</div>
               <div style="font:600 13px -apple-system,sans-serif; color:oklch(0.25 0.01 250); margin-top:4px;">3 hours</div>
@@ -625,15 +664,92 @@
         </div>
         <div style="padding:20px 22px 0;">
           <div style="font:600 11px ui-monospace,monospace; letter-spacing:.09em; text-transform:uppercase; color:oklch(0.55 0.01 250);">Cards</div>
-          <div style="display:flex; align-items:center; gap:12px; margin-top:11px; padding:15px 16px; border:1px solid oklch(0.92 0.01 250); border-radius:16px;">
-            <div style="width:34px; height:23px; border-radius:4px; background:linear-gradient(135deg, oklch(0.28 0.03 250), oklch(0.45 0.07 50)); flex:none;"></div>
-            <div style="flex:1;">
-              <div style="font:600 13.5px -apple-system,sans-serif; color:oklch(0.2 0.01 250);">{{ issuer }}</div>
-              <div style="font:400 12px ui-monospace,monospace; color:oklch(0.55 0.01 250); margin-top:3px;">•••• {{ cardLast4 }} · tokenised {{ consentDate }}</div>
+          <div class="scr" style="display:flex; gap:12px; margin-top:11px; padding-bottom:6px; overflow-x:auto; scroll-snap-type:x proximity;">
+            <div style="flex:none; width:200px; scroll-snap-align:start; position:relative; border-radius:18px; overflow:hidden; min-height:112px;">
+              <div style="{{ primaryWashStyle }}"></div>
+              <sc-if value="{{ isVisaPrimary }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute; top:12px; left:12px; display:flex; flex-direction:column; gap:7px;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#c9a35a" stroke-width="2.4" stroke-linecap="round"><path d="M3 10a9 9 0 0 1 0 4"/><path d="M7 6a14 14 0 0 1 0 12"/><path d="M11 3a18 18 0 0 1 0 18"/></svg>
+                  <div style="width:21px; height:15px; border-radius:3px; background:linear-gradient(135deg, #e8c876, #a97c2f); position:relative;">
+                    <div style="position:absolute; inset:2px; border:1px solid rgba(0,0,0,.3); border-radius:2px;"></div>
+                  </div>
+                </div>
+                <div style="position:absolute; bottom:12px; left:12px; display:flex; align-items:center; gap:6px;">
+                  <svg width="15" height="15" viewBox="0 0 24 24">
+                    <defs><linearGradient id="agGradSm" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f3dba3"/><stop offset="55%" stop-color="#c9a35a"/><stop offset="100%" stop-color="#8a611f"/></linearGradient></defs>
+                    <rect x="7" y="4" width="12" height="16" fill="none" stroke="url(#agGradSm)" stroke-width="1.6"/>
+                    <path d="M19,3 L2,12 L19,21 L12,12 Z" fill="url(#agGradSm)"/>
+                  </svg>
+                  <span style="font:700 8.5px -apple-system,sans-serif; letter-spacing:.02em; color:#c9a35a; white-space:nowrap;">Alliance Bank</span>
+                </div>
+                <div style="position:absolute; top:0; right:0; bottom:0; width:38px; display:flex; align-items:center; justify-content:center;">
+                  <div style="transform:rotate(90deg); display:flex; align-items:center; gap:7px; white-space:nowrap;">
+                    <span style="font:700 8px -apple-system,sans-serif; letter-spacing:.09em; color:#c9a35a; text-transform:uppercase;">{{ cardNameDisplay }}</span>
+                    <div style="display:flex; flex-direction:column; align-items:flex-start; line-height:1;">
+                      <span style="font:800 12px Georgia,'Times New Roman',serif; font-style:italic; color:#c9a35a;">VISA</span>
+                      <span style="font:400 5.5px -apple-system,sans-serif; letter-spacing:.14em; color:#c9a35a; margin-top:1px;">infinite</span>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isNotVisaPrimary }}" hint-placeholder-val="{{ true }}">
+                <div style="position:absolute; inset:0; padding:16px; display:flex; flex-direction:column; justify-content:space-between;">
+                  <div style="font:600 12.5px -apple-system,sans-serif; color:#fff; line-height:1.25; text-shadow:0 1px 3px oklch(0 0 0 / 0.5);">{{ issuer }}</div>
+                  <div>
+                    <div style="font:600 14.5px ui-monospace,monospace; letter-spacing:.09em; color:#fff; text-shadow:0 1px 3px oklch(0 0 0 / 0.5);">•••• {{ cardLast4 }}</div>
+                    <div style="font:400 10.5px -apple-system,sans-serif; color:oklch(1 0 0 / 0.85); text-shadow:0 1px 3px oklch(0 0 0 / 0.5); margin-top:4px;">Tokenised {{ consentDate }}</div>
+                  </div>
+                </div>
+              </sc-if>
+              <button type="button" onClick="{{ removeCard }}" style="position:absolute; top:10px; right:10px; min-width:24px; min-height:24px; border-radius:50%; border:none; background:oklch(1 0 0 / 0.16); color:#fff; font-size:11px; cursor:pointer; line-height:1;">✕</button>
             </div>
-            <button type="button" onClick="{{ removeCard }}" style="flex:none; min-height:36px; padding:0 12px; border:1px solid oklch(0.92 0.01 250); background:#fff; border-radius:9px; font:600 11.5px -apple-system,sans-serif; color:oklch(0.5 0.16 25); cursor:pointer;">Remove</button>
+            <sc-for list="{{ cardTiles }}" as="c" hint-placeholder-count="2">
+              <div style="flex:none; width:200px; scroll-snap-align:start; position:relative; border-radius:18px; overflow:hidden; min-height:112px; background:oklch(0.97 0.005 75); border:1px solid oklch(0.92 0.01 250);">
+                <sc-if value="{{ c.isVisa }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:absolute; inset:0; background:#0a0a08;"></div>
+                  <div style="position:absolute; top:12px; left:12px; display:flex; flex-direction:column; gap:7px;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#c9a35a" stroke-width="2.4" stroke-linecap="round"><path d="M3 10a9 9 0 0 1 0 4"/><path d="M7 6a14 14 0 0 1 0 12"/><path d="M11 3a18 18 0 0 1 0 18"/></svg>
+                    <div style="width:21px; height:15px; border-radius:3px; background:linear-gradient(135deg, #e8c876, #a97c2f); position:relative;">
+                      <div style="position:absolute; inset:2px; border:1px solid rgba(0,0,0,.3); border-radius:2px;"></div>
+                    </div>
+                  </div>
+                  <div style="position:absolute; bottom:12px; left:12px; display:flex; align-items:center; gap:6px;">
+                    <svg width="15" height="15" viewBox="0 0 24 24">
+                      <defs><linearGradient id="agGradSm2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f3dba3"/><stop offset="55%" stop-color="#c9a35a"/><stop offset="100%" stop-color="#8a611f"/></linearGradient></defs>
+                      <rect x="7" y="4" width="12" height="16" fill="none" stroke="url(#agGradSm2)" stroke-width="1.6"/>
+                      <path d="M19,3 L2,12 L19,21 L12,12 Z" fill="url(#agGradSm2)"/>
+                    </svg>
+                    <span style="font:700 8.5px -apple-system,sans-serif; letter-spacing:.02em; color:#c9a35a; white-space:nowrap;">Alliance Bank</span>
+                  </div>
+                  <div style="position:absolute; top:0; right:0; bottom:0; width:38px; display:flex; align-items:center; justify-content:center;">
+                    <div style="transform:rotate(90deg); display:flex; align-items:center; gap:7px; white-space:nowrap;">
+                      <span style="font:700 8px -apple-system,sans-serif; letter-spacing:.09em; color:#c9a35a; text-transform:uppercase;">{{ c.name }}</span>
+                      <div style="display:flex; flex-direction:column; align-items:flex-start; line-height:1;">
+                        <span style="font:800 12px Georgia,'Times New Roman',serif; font-style:italic; color:#c9a35a;">VISA</span>
+                        <span style="font:400 5.5px -apple-system,sans-serif; letter-spacing:.14em; color:#c9a35a; margin-top:1px;">infinite</span>
+                      </div>
+                    </div>
+                  </div>
+                </sc-if>
+                <div style="position:absolute; inset:0; padding:16px; display:flex; flex-direction:column; justify-content:space-between;">
+                  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
+                    <div style="{{ c.labelStyle }}">{{ c.label }}</div>
+                    <button type="button" onClick="{{ c.remove }}" style="flex:none; min-width:26px; min-height:26px; border-radius:50%; border:none; background:oklch(0 0 0 / 0.06); color:oklch(0.45 0.01 250); font-size:11px; cursor:pointer; line-height:1;">✕</button>
+                  </div>
+                  <div style="{{ c.last4Style }}">•••• {{ c.last4 }}</div>
+                </div>
+              </div>
+            </sc-for>
+            <button type="button" onClick="{{ addExtraCard }}" style="flex:none; width:200px; min-height:112px; border-radius:18px; border:1px dashed oklch(0.82 0.01 250); background:none; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; cursor:pointer; color:oklch(0.55 0.09 50);">
+              <span style="font-size:20px; line-height:1;">+</span>
+              <span style="font:600 12.5px -apple-system,sans-serif;">Add card</span>
+            </button>
           </div>
-          <button type="button" onClick="{{ goAddCard }}" style="width:100%; min-height:50px; margin-top:10px; border:1px dashed oklch(0.85 0.01 250); background:none; border-radius:16px; font:600 13.5px -apple-system,sans-serif; color:oklch(0.55 0.09 50); cursor:pointer;">+ Add another card</button>
+          <div style="display:flex; gap:5px; justify-content:center; margin-top:2px;">
+            <sc-for list="{{ cardDots }}" as="d" hint-placeholder-count="3">
+              <div style="{{ d.style }}"></div>
+            </sc-for>
+          </div>
 
           <div style="font:600 11px ui-monospace,monospace; letter-spacing:.09em; text-transform:uppercase; color:oklch(0.55 0.01 250); margin-top:26px;">Benefits</div>
           <div style="margin-top:11px; border:1px solid oklch(0.92 0.01 250); border-radius:16px; overflow:hidden;">
@@ -683,16 +799,16 @@
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1000,&quot;height&quot;:940},&quot;issuerName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Alliance Bank VISA Infinite&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Program&quot;},&quot;currencyCode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;RM&quot;,&quot;options&quot;:[&quot;RM&quot;,&quot;USD&quot;,&quot;SGD&quot;,&quot;₹&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Program&quot;},&quot;verifyAmount&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:1,&quot;min&quot;:0,&quot;max&quot;:50,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Program&quot;},&quot;tokenAmount&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:1,&quot;min&quot;:0,&quot;max&quot;:50,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Program&quot;}}">
 const AIRPORTS = [
   { code: 'KUL', city: 'Kuala Lumpur', name: 'KLIA', lounges: [
-    { id: 'kul1', name: 'Plaza Premium Lounge', location: 'KLIA T1, Satellite Building Level 3', hours: '24 hours', tags: ['Hot buffet', 'Showers', 'Wi-Fi'], status: 'Open' },
+    { id: 'kul1', name: 'SSP Premium Lounge', location: 'KLIA T1, Satellite Building Level 3', hours: '24 hours', tags: ['Hot buffet', 'Showers', 'Wi-Fi'], status: 'Open' },
     { id: 'kul2', name: 'Golden Lounge Regional', location: 'KLIA T1, Main Terminal Level 5', hours: '05:00 – 01:00', tags: ['À la carte', 'Bar', 'Quiet zone'], status: 'Open' },
     { id: 'kul3', name: 'Sama-Sama Express Lounge', location: 'KLIA T2, Departure Level', hours: '06:00 – 23:00', tags: ['Wi-Fi', 'Snacks'], status: 'Busy' }
   ] },
   { code: 'PEN', city: 'Penang', name: 'Penang Intl', lounges: [
-    { id: 'pen1', name: 'Plaza Premium Lounge', location: 'International Departure, Level 2', hours: '05:30 – 23:30', tags: ['Local kitchen', 'Showers'], status: 'Open' },
+    { id: 'pen1', name: 'SSP Premium Lounge', location: 'International Departure, Level 2', hours: '05:30 – 23:30', tags: ['Local kitchen', 'Showers'], status: 'Open' },
     { id: 'pen2', name: 'Harmoni Lounge', location: 'Domestic Departure, Level 1', hours: '06:00 – 22:00', tags: ['Wi-Fi', 'Snacks'], status: 'Open' }
   ] },
   { code: 'BKI', city: 'Kota Kinabalu', name: 'Kota Kinabalu Intl', lounges: [
-    { id: 'bki1', name: 'Plaza Premium Lounge', location: 'Terminal 1, Level 2', hours: '06:00 – 22:00', tags: ['Hot buffet', 'Wi-Fi'], status: 'Open' },
+    { id: 'bki1', name: 'SSP Premium Lounge', location: 'Terminal 1, Level 2', hours: '06:00 – 22:00', tags: ['Hot buffet', 'Wi-Fi'], status: 'Open' },
     { id: 'bki2', name: 'Borneo Executive Lounge', location: 'Terminal 1, Departure Hall', hours: '07:00 – 21:00', tags: ['Bar', 'Showers'], status: 'Busy' }
   ] },
   { code: 'KCH', city: 'Kuching', name: 'Kuching Intl', lounges: [
@@ -706,7 +822,7 @@ const AIRPORTS = [
   ] },
   { code: 'SIN', city: 'Singapore', name: 'Changi', lounges: [
     { id: 'sin1', name: 'Blossom Lounge', location: 'Terminal 4, Departure Transit', hours: '24 hours', tags: ['Hot buffet', 'Showers', 'Nap pods'], status: 'Open' },
-    { id: 'sin2', name: 'Plaza Premium Lounge', location: 'Terminal 1, Level 3', hours: '24 hours', tags: ['Bar', 'Showers', 'Wi-Fi'], status: 'Open' },
+    { id: 'sin2', name: 'SSP Premium Lounge', location: 'Terminal 1, Level 3', hours: '24 hours', tags: ['Bar', 'Showers', 'Wi-Fi'], status: 'Open' },
     { id: 'sin3', name: 'Ambassador Transit Lounge', location: 'Terminal 3, Level 3', hours: '24 hours', tags: ['Quiet zone', 'Snacks'], status: 'Busy' }
   ] },
   { code: 'BKK', city: 'Bangkok', name: 'Suvarnabhumi', lounges: [
@@ -714,6 +830,53 @@ const AIRPORTS = [
     { id: 'bkk2', name: 'Coral Executive Lounge', location: 'Concourse G, Level 3', hours: '05:00 – 24:00', tags: ['Bar', 'Wi-Fi'], status: 'Open' }
   ] }
 ];
+
+// Real, freely-licensed Wikimedia Commons photos, hotlinked via the stable
+// Special:FilePath redirect (no attribution required off unsplash.com hosts).
+const wikiImg = (file, w) => 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(file) + '?width=' + w;
+
+const SERVICE_IMAGES = {
+  lounge: '190209 TSR BusinessLounge.jpg',
+  meet: 'Austrian Lounge Reception.jpg',
+  transfer: 'Mercedes-Benz V-class VIP.JPG'
+};
+
+const AIRPORT_IMAGES = {
+  KUL: 'KLIA C-Pier (cropped).jpg',
+  PEN: 'Penang International Airport (230815) 01.jpg',
+  BKI: 'KKIA Exterior, Malaysia, May 2024.jpg',
+  KCH: 'Kuching International Airport 2024 01.jpg',
+  JHB: 'Senai Airport Terminal (220309) 01.jpg',
+  LGK: 'Langkawi Malaysia Lankawi-International-Airport-01.jpg',
+  SIN: 'Changi airport terminal interior.jpg',
+  BKK: 'Suvarnabhumi Airport Departures Hall Bangkok Thailand.jpg'
+};
+
+const NETWORK_BG = {
+  VISA: 'linear-gradient(135deg, oklch(0.34 0.1 265), oklch(0.18 0.05 265) 60%, oklch(0.42 0.1 265))',
+  Mastercard: 'linear-gradient(135deg, oklch(0.34 0.09 40), oklch(0.18 0.04 40) 60%, oklch(0.42 0.11 40))',
+  AMEX: 'linear-gradient(135deg, oklch(0.34 0.08 235), oklch(0.18 0.04 235) 60%, oklch(0.42 0.09 235))',
+  RuPay: 'linear-gradient(135deg, oklch(0.34 0.09 155), oklch(0.18 0.04 155) 60%, oklch(0.42 0.1 155))',
+  default: 'linear-gradient(135deg, oklch(0.3 0.03 250), oklch(0.17 0.02 250) 58%, oklch(0.4 0.06 50))'
+};
+
+const LOUNGE_IMAGES = {
+  kul1: 'Lounge at BLR.JPG',
+  kul2: '190209 TSR BusinessLounge.jpg',
+  kul3: 'HEL SK Business Lounge general overview.jpg',
+  pen1: 'Lounge at BLR.JPG',
+  pen2: 'Ferihegy 1 Lounge.jpg',
+  bki1: 'Lounge at BLR.JPG',
+  bki2: 'Budapest Airport-Platinum Lounge-Entrance-201401.jpg',
+  kch1: 'Naples airport lounge in the early early morning (8751212170).jpg',
+  jhb1: 'Senai Airport City Lounge.jpg',
+  lgk1: 'Helsinki-Vantaa lounge.jpg',
+  sin1: 'British Airways Lounge, Cape Town (P1060087).jpg',
+  sin2: 'Lounge at BLR.JPG',
+  sin3: 'Garuda Indonesia Executive Lounge Soekarno Hatta 01.jpg',
+  bkk1: 'Doha Airport Oryx lounge.JPG',
+  bkk2: 'Emirates Lounge, Cape Town (P1060088).jpg'
+};
 
 const DIALS = [
   { code: '+60', country: 'Malaysia', flag: '🇲🇾' },
@@ -759,7 +922,9 @@ class Component extends DCLogic {
     service: 'lounge', query: '', airportCode: null, loungeId: null,
     dateIdx: 0, slot: '12:00', guests: 0, paying: false,
     loungeLeft: 4, meetLeft: 2, bookings: [], activeBooking: null,
-    zoomed: false, supportOpen: false
+    zoomed: false, supportOpen: false,
+    cards: [{ id: 'c-visa', label: 'VISA', last4: '7743' }, { id: 'c-mc', label: 'Mastercard', last4: '5588' }],
+    walletShift: 1
   };
 
   componentWillUnmount() { clearTimeout(this.t1); clearTimeout(this.t2); }
@@ -904,7 +1069,9 @@ class Component extends DCLogic {
     screen: 'login', loginTab: 'phone', ident: '', otp: '', otpSent: false, authError: '',
     cardNum: '', cardExp: '', cardCvv: '', cardName: '', cardError: '', consent: false,
     query: '', airportCode: null, loungeId: null, dateIdx: 0, slot: '12:00', guests: 0,
-    loungeLeft: 4, meetLeft: 2, bookings: [], activeBooking: null, paying: false, zoomed: false, supportOpen: false
+    loungeLeft: 4, meetLeft: 2, bookings: [], activeBooking: null, paying: false, zoomed: false, supportOpen: false,
+    cards: [{ id: 'c-visa', label: 'VISA', last4: '7743' }, { id: 'c-mc', label: 'Mastercard', last4: '5588' }],
+    walletShift: 1
   });
 
   airport() { return AIRPORTS.find(a => a.code === this.state.airportCode) || null; }
@@ -972,6 +1139,43 @@ class Component extends DCLogic {
 
     const guestCharge = s.guests > 0 ? cur + ' ' + (s.guests * 120).toFixed(2) : 'None';
 
+    const bankName = issuer.replace(/\s+(VISA|Mastercard|Infinite|Platinum|Signature).*$/i, '').trim() || 'Your bank';
+    const cardTier = (issuer.match(/(Infinite|Signature|Platinum|Gold|World Elite|World)/i) || ['Credit Card'])[0];
+    const cardNameDisplay = s.cardName.trim() || holderName;
+    const networkMark = net ? net.mark : '';
+
+    // Home hero: a fanned stack of the primary tokenised card plus any
+    // personal cards. Tap-to-cycle stands in for drag physics, which
+    // aren't worth the weight in this templated renderer.
+    const walletBase = [
+      { kind: 'primary', bg: NETWORK_BG.default, title: bankName, sub: cardTier, last4, name: cardNameDisplay, mark: networkMark, isVisa: networkMark === 'VISA' }
+    ].concat(s.cards.map(c => ({
+      kind: 'secondary', id: c.id, bg: NETWORK_BG[c.label] || NETWORK_BG.default,
+      title: 'Personal card', sub: '', last4: c.last4, name: holderName, mark: c.label,
+      isVisa: c.label === 'VISA'
+    })));
+    const wLen = walletBase.length;
+    const wShift = ((s.walletShift % wLen) + wLen) % wLen;
+    const walletOrder = walletBase.slice(wShift).concat(walletBase.slice(0, wShift));
+    const layerDefs = [
+      { rot: 0, tx: 0, ty: 0, scale: 1, dim: 1, z: 3 },
+      { rot: 5, tx: 16, ty: 10, scale: 0.97, dim: 0.85, z: 2 },
+      { rot: 10, tx: 30, ty: 20, scale: 0.94, dim: 0.68, z: 1 }
+    ];
+    const stackLayers = walletOrder.slice(0, Math.min(3, wLen)).map((card, i) => {
+      const d = layerDefs[i];
+      return {
+        key: card.kind + '-' + (card.id || 'p') + '-' + i,
+        style: 'position:absolute; inset:0; border-radius:16px; overflow:hidden; box-shadow:0 10px 24px oklch(0.22 0.02 250 / 0.22); background:' + (card.isVisa ? '#0a0a08' : card.bg) + '; opacity:' + d.dim + '; z-index:' + d.z + '; transform:rotate(' + d.rot + 'deg) translate(' + d.tx + 'px,' + d.ty + 'px) scale(' + d.scale + '); transform-origin:88% 88%; cursor:pointer;',
+        title: card.title, sub: card.sub, last4: card.last4, name: card.name, mark: card.mark,
+        isVisa: card.isVisa, notVisa: !card.isVisa
+      };
+    });
+    const walletFront = walletOrder[0];
+    const walletDots = walletBase.map((_, i) => ({
+      style: 'width:6px; height:6px; border-radius:50%; background:' + (i === wShift ? 'oklch(0.55 0.09 50)' : 'oklch(0.85 0.01 250)') + ';'
+    }));
+
     return {
       // screen switches
       isLogin: s.screen === 'login', isAddCard: s.screen === 'addCard',
@@ -1016,10 +1220,10 @@ class Component extends DCLogic {
       isMastercard: !!net && net.name === 'Mastercard',
       isAmex: !!net && net.name === 'AMEX',
       isOtherNet: !!net && ['VISA', 'Mastercard', 'AMEX'].indexOf(net.name) < 0,
-      networkMark: net ? net.mark : '',
+      networkMark,
       networkMarkStyle: net ? 'font:' + net.style + ' ' + net.weight + ' ' + net.size + ' -apple-system,sans-serif; letter-spacing:' + net.letterSpacing + '; color:' + net.color + '; white-space:nowrap;' : 'display:none;',
       cardNumberDisplay: digits ? (digits.match(/.{1,4}/g) || []).join(' ').padEnd(19, '·') : '•••• •••• •••• ••••',
-      cardNameDisplay: s.cardName.trim() || holderName,
+      cardNameDisplay,
       cardExpDisplay: s.cardExp.trim() || 'MM/YY',
       onCardNum: e => this.setState({ cardNum: this.fmtCardNum(e.target.value), cardError: '' }),
       onCardExp: e => this.setState(st => ({ cardExp: this.fmtExpiry(e.target.value, st.cardExp), cardError: '' })),
@@ -1035,8 +1239,7 @@ class Component extends DCLogic {
         ? 'background:linear-gradient(90deg, oklch(0.55 0.09 50), oklch(0.78 0.07 55)); cursor:pointer; box-shadow:0 8px 20px oklch(0.55 0.09 50 / 0.28);'
         : 'background:oklch(0.85 0.01 250); cursor:not-allowed;'),
       submitCard: this.submitCard,
-      bankName: issuer.replace(/\s+(VISA|Mastercard|Infinite|Platinum|Signature).*$/i, '').trim() || 'Your bank',
-      cardTier: (issuer.match(/(Infinite|Signature|Platinum|Gold|World Elite|World)/i) || ['Credit Card'])[0],
+      bankName, cardTier,
       maskedMobile: (s.ident.replace(/\D/g, '').slice(-4) || '4187'),
       bankOtp: s.bankOtp, bankOtpError: s.bankOtpError,
       verifyBankOtp: this.verifyBankOtp,
@@ -1058,6 +1261,35 @@ class Component extends DCLogic {
       backToLogin: this.go('login'), goHome: this.go('home'), goAddCard: this.go('addCard'),
       consentDate: '24 Aug 2026',
       removeCard: () => this.setState({ screen: 'addCard', consent: false, cardNum: '', cardExp: '', cardCvv: '', cardError: '' }),
+      cardTiles: s.cards.map(c => ({
+        id: c.id, label: c.label, last4: c.last4, name: holderName, isVisa: c.label === 'VISA',
+        labelStyle: 'font:600 12.5px -apple-system,sans-serif; color:oklch(0.3 0.01 250); ' + (c.label === 'VISA' ? 'display:none;' : ''),
+        last4Style: 'font:600 14.5px ui-monospace,monospace; letter-spacing:.09em; color:oklch(0.25 0.01 250); ' + (c.label === 'VISA' ? 'display:none;' : ''),
+        remove: () => this.setState(st => ({ cards: st.cards.filter(x => x.id !== c.id) }))
+      })),
+      isVisaPrimary: !!net && net.name === 'VISA', isNotVisaPrimary: !(net && net.name === 'VISA'),
+      primaryWashStyle: 'position:absolute; inset:0; ' + (net && net.name === 'VISA' ? 'background:#0a0a08;' : 'background:linear-gradient(135deg, oklch(0.28 0.03 250), oklch(0.45 0.07 50));'),
+      addExtraCard: () => this.setState(st => {
+        const pool = [
+          { label: 'VISA', last4: '7743' }, { label: 'Mastercard', last4: '5588' },
+          { label: 'AMEX', last4: '1004' }, { label: 'RuPay', last4: '6602' }
+        ];
+        const next = pool[st.cards.length % pool.length];
+        return { cards: [...st.cards, { id: 'card-' + Date.now(), label: next.label, last4: next.last4 }] };
+      }),
+      cardDots: Array.from({ length: 1 + s.cards.length }, (_, i) => ({
+        style: 'width:6px; height:6px; border-radius:50%; background:' + (i === 0 ? 'oklch(0.55 0.09 50)' : 'oklch(0.85 0.01 250)') + ';'
+      })),
+
+      // home wallet stack
+      stackLayers, walletDots,
+      cycleWallet: () => this.setState(st => ({ walletShift: st.walletShift + 1 })),
+      frontLabel: walletFront.kind === 'primary' ? bankName : walletFront.mark,
+      frontLast4: walletFront.last4,
+      frontActionLabel: walletFront.kind === 'primary' ? 'Replace card' : 'Remove card',
+      frontAction: walletFront.kind === 'primary'
+        ? () => this.setState({ screen: 'addCard', consent: false, cardNum: '', cardExp: '', cardCvv: '', cardError: '' })
+        : () => this.setState(st => ({ cards: st.cards.filter(x => x.id !== walletFront.id) })),
 
       // home
       loungeLeft: s.loungeLeft, meetLeft: s.meetLeft,
@@ -1071,9 +1303,9 @@ class Component extends DCLogic {
         }))
       })),
       services: [
-        { key: 'lounge', name: 'Airport Lounge', sub: 'Included visits across 8 airports', slot: 'svc-lounge', img: './assets/svc-lounge.png', hint: 'Drop a lounge interior photo', left: s.loungeLeft, total: 4 },
-        { key: 'meet', name: 'Meet & Assist', sub: 'Greeter, fast-track and porter', slot: 'svc-meet', img: './assets/svc-meet.png', hint: 'Drop a meet & assist photo', left: s.meetLeft, total: 2 },
-        { key: 'transfer', name: 'Airport Transfer', sub: 'Private car, kerbside to door', slot: 'svc-transfer', img: './assets/svc-transfer.png', hint: 'Drop a chauffeur photo', payAndUse: true, from: cur + ' 89' }
+        { key: 'lounge', name: 'Airport Lounge', sub: 'Included visits across 8 airports', slot: 'svc-lounge', img: wikiImg(SERVICE_IMAGES.lounge, 600), hint: 'Drop a lounge interior photo', left: s.loungeLeft, total: 4 },
+        { key: 'meet', name: 'Meet & Assist', sub: 'Greeter, fast-track and porter', slot: 'svc-meet', img: wikiImg(SERVICE_IMAGES.meet, 600), hint: 'Drop a meet & assist photo', left: s.meetLeft, total: 2 },
+        { key: 'transfer', name: 'Airport Transfer', sub: 'Private car, kerbside to door', slot: 'svc-transfer', img: wikiImg(SERVICE_IMAGES.transfer, 600), hint: 'Drop a chauffeur photo', payAndUse: true, from: cur + ' 89' }
       ].map(sv => ({
         name: sv.name, sub: sv.sub, slotId: sv.slot, slotHint: sv.hint, img: sv.img,
         go: () => this.setState({ screen: 'airports', service: sv.key, query: '' }),
@@ -1098,6 +1330,7 @@ class Component extends DCLogic {
         code: a.code, city: a.city, name: a.name,
         countLabel: a.lounges.length + (a.lounges.length === 1 ? ' lounge' : ' lounges'),
         hover: 'background:oklch(0.97 0.005 75);', slotId: 'ap-' + a.code,
+        img: wikiImg(AIRPORT_IMAGES[a.code], 300),
         go: () => this.setState({ screen: 'lounges', airportCode: a.code })
       })),
       goAirports: this.go('airports'),
@@ -1107,6 +1340,7 @@ class Component extends DCLogic {
       loungeCountLabel: ap ? (ap.lounges.length + (ap.lounges.length === 1 ? ' lounge' : ' lounges available') + (s.service === 'transfer' ? ' · pay and use' : ' · uses 1 of your ' + s.loungeLeft + ' remaining visits')) : '',
       loungeList: (ap ? ap.lounges : []).map(l => ({
         name: l.name, location: l.location, status: l.status, code: ap ? ap.code + ' · ' + l.hours : '', slotId: 'lg-' + l.id,
+        img: wikiImg(LOUNGE_IMAGES[l.id], 600),
         statusStyle: 'flex:none; font:600 11px -apple-system,sans-serif; border-radius:999px; padding:4px 9px; color:' + (l.status === 'Open' ? 'oklch(0.42 0.13 145)' : 'oklch(0.45 0.1 60)') + '; background:' + (l.status === 'Open' ? 'oklch(0.5 0.14 145 / 0.13)' : 'oklch(0.7 0.13 70 / 0.18)') + ';',
         tags: l.tags.map(t => ({ label: t })),
         go: () => this.setState({ screen: 'detail', loungeId: l.id })
@@ -1116,6 +1350,7 @@ class Component extends DCLogic {
       // detail
       loungeName: lg ? lg.name : '', loungeLocation: lg ? lg.location : '', loungeHours: lg ? lg.hours : '',
       detailSlotId: lg ? 'lg-' + lg.id : 'lg-none',
+      detailImg: lg ? wikiImg(LOUNGE_IMAGES[lg.id], 900) : '',
       detailTags: (lg ? lg.tags : []).concat(['Complimentary']).map(t => ({ label: t })),
       dateOptions: dates.map((d, i) => ({
         dow: DOWS[d.getDay()], day: d.getDate(), mon: MONTHS[d.getMonth()],
