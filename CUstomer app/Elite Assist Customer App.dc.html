@@ -48,15 +48,11 @@
           <div style="font:400 14px/1.55 -apple-system,sans-serif; color:oklch(1 0 0 / 0.62); margin-top:10px; max-width:270px; position:relative; text-wrap:pretty;">Effortless, elevated travel — every privilege included with your card.</div>
         </div>
 
-        <div style="flex:1; background:#fff; border-radius:28px 28px 0 0; padding:26px 26px 34px; display:flex; flex-direction:column;">
-          <div style="display:flex; background:oklch(0.97 0.005 75); border:1px solid oklch(0.92 0.01 250); border-radius:12px; padding:4px; gap:4px;">
-            <button type="button" onClick="{{ tabPhone }}" style="{{ styles.tabPhone }}">Phone</button>
-            <button type="button" onClick="{{ tabEmail }}" style="{{ styles.tabEmail }}">Email</button>
-          </div>
-
+        <div style="flex:1; background:#fff; border-radius:28px 28px 0 0; padding:30px 26px 34px; display:flex; flex-direction:column;">
           <sc-if value="{{ otpNotSent }}" hint-placeholder-val="{{ true }}">
-            <div style="display:flex; flex-direction:column; gap:8px; margin-top:22px;">
-              <label style="font:600 12px -apple-system,sans-serif; color:oklch(0.35 0.01 250); letter-spacing:.01em;">{{ identLabel }}</label>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="font:700 19px -apple-system,sans-serif; color:oklch(0.2 0.01 250); letter-spacing:-0.3px;">Sign in</div>
+              <label style="font:600 12px -apple-system,sans-serif; color:oklch(0.35 0.01 250); letter-spacing:.01em; margin-top:10px;">{{ identLabel }}</label>
               <div style="display:flex; gap:8px; align-items:center;">
                 <sc-if value="{{ isPhone }}" hint-placeholder-val="{{ true }}">
                   <div style="position:relative; flex:none;">
@@ -72,26 +68,34 @@
                     </select>
                   </div>
                 </sc-if>
-                <input type="{{ identInputType }}" inputmode="{{ identInputMode }}" autocomplete="{{ identAutocomplete }}" value="{{ ident }}" onChange="{{ onIdent }}" placeholder="{{ identPlaceholder }}" style="flex:1; min-width:0; width:100%; min-height:52px; padding:0 15px; border:1px solid oklch(0.92 0.01 250); border-radius:12px; font-size:15px; color:oklch(0.2 0.01 250); background:#fff; outline:none;"/>
+                <input type="{{ identInputType }}" inputmode="{{ identInputMode }}" autocomplete="{{ identAutocomplete }}" autofocus value="{{ ident }}" onChange="{{ onIdent }}" placeholder="{{ identPlaceholder }}" style="flex:1; min-width:0; width:100%; min-height:52px; padding:0 15px; border:1px solid oklch(0.92 0.01 250); border-radius:12px; font-size:15px; color:oklch(0.2 0.01 250); background:#fff; outline:none;"/>
               </div>
               <div style="font:400 12px/1.5 -apple-system,sans-serif; color:oklch(0.55 0.01 250); margin-top:2px;">We'll send a 6-digit code to confirm it's you.</div>
               <sc-if value="{{ authError }}" hint-placeholder-val="{{ false }}">
                 <div style="font:500 12.5px/1.4 -apple-system,sans-serif; color:oklch(0.55 0.19 25);">{{ authError }}</div>
               </sc-if>
               <button type="button" onClick="{{ sendOtp }}" style="margin-top:14px; min-height:54px; border:none; border-radius:999px; background:linear-gradient(90deg, oklch(0.55 0.09 50), oklch(0.78 0.07 55)); color:#fff; font:700 15px -apple-system,sans-serif; letter-spacing:.01em; cursor:pointer; box-shadow:0 8px 20px oklch(0.55 0.09 50 / 0.28);">Send code</button>
+              <button type="button" onClick="{{ toggleAuthMode }}" style="min-height:40px; margin-top:2px; border:none; background:none; font:600 13px -apple-system,sans-serif; color:oklch(0.55 0.01 250); cursor:pointer;">{{ altAuthLabel }}</button>
             </div>
           </sc-if>
 
           <sc-if value="{{ otpSent }}" hint-placeholder-val="{{ false }}">
-            <div style="display:flex; flex-direction:column; gap:8px; margin-top:22px; animation:ea-in .28s ease both;">
-              <label style="font:600 12px -apple-system,sans-serif; color:oklch(0.35 0.01 250);">Enter the 6-digit code</label>
-              <div style="font:400 12.5px/1.5 -apple-system,sans-serif; color:oklch(0.55 0.01 250); margin-bottom:4px;">Sent to <strong style="color:oklch(0.25 0.01 250);">{{ identDisplay }}</strong></div>
-              <input type="tel" inputmode="numeric" autocomplete="one-time-code" maxlength="6" value="{{ otp }}" onChange="{{ onOtp }}" placeholder="······" style="min-height:56px; padding:0 18px; border:1px solid oklch(0.92 0.01 250); border-radius:12px; font-family:ui-monospace,monospace; font-size:22px; font-weight:700; letter-spacing:.42em; color:oklch(0.2 0.01 250); background:#fff; outline:none;"/>
+            <div style="display:flex; flex-direction:column; gap:8px; animation:ea-in .28s ease both;">
+              <div style="font:700 19px -apple-system,sans-serif; color:oklch(0.2 0.01 250); letter-spacing:-0.3px;">Enter the code</div>
+              <div style="font:400 12.5px/1.5 -apple-system,sans-serif; color:oklch(0.55 0.01 250); margin-top:2px; margin-bottom:6px;">Sent to <strong style="color:oklch(0.25 0.01 250);">{{ identDisplay }}</strong></div>
+              <div style="display:flex; gap:8px;">
+                <sc-for list="{{ loginOtpBoxes }}" as="b" hint-placeholder-count="6">
+                  <input type="tel" inputmode="numeric" autocomplete="one-time-code" maxlength="1" ref="{{ b.ref }}" value="{{ b.char }}" onChange="{{ b.onChange }}" onKeyDown="{{ b.onKeyDown }}" onPaste="{{ b.onPaste }}" onFocus="{{ b.onFocus }}" style="{{ b.style }}"/>
+                </sc-for>
+              </div>
               <sc-if value="{{ authError }}" hint-placeholder-val="{{ false }}">
                 <div style="font:500 12.5px/1.4 -apple-system,sans-serif; color:oklch(0.55 0.19 25);">{{ authError }}</div>
               </sc-if>
-              <button type="button" onClick="{{ verifyOtp }}" style="margin-top:12px; min-height:54px; border:none; border-radius:999px; background:linear-gradient(90deg, oklch(0.55 0.09 50), oklch(0.78 0.07 55)); color:#fff; font:700 15px -apple-system,sans-serif; cursor:pointer; box-shadow:0 8px 20px oklch(0.55 0.09 50 / 0.28);">Verify &amp; continue</button>
-              <button type="button" onClick="{{ editIdent }}" style="min-height:44px; border:none; background:none; font:600 13px -apple-system,sans-serif; color:oklch(0.55 0.09 50); cursor:pointer;">Change {{ identWord }}</button>
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-top:8px;">
+                <button type="button" onClick="{{ editIdent }}" style="min-height:36px; padding:0; border:none; background:none; font:600 12.5px -apple-system,sans-serif; color:oklch(0.55 0.01 250); cursor:pointer;">Change {{ identWord }}</button>
+                <button type="button" onClick="{{ resendOtp }}" style="min-height:36px; padding:0; border:none; background:none; font:600 12.5px -apple-system,sans-serif; color:oklch(0.55 0.09 50); cursor:pointer;">{{ resendLabel }}</button>
+              </div>
+              <button type="button" onClick="{{ verifyOtp }}" style="margin-top:10px; min-height:54px; border:none; border-radius:999px; background:linear-gradient(90deg, oklch(0.55 0.09 50), oklch(0.78 0.07 55)); color:#fff; font:700 15px -apple-system,sans-serif; cursor:pointer; box-shadow:0 8px 20px oklch(0.55 0.09 50 / 0.28);">Verify &amp; continue</button>
             </div>
           </sc-if>
 
@@ -181,41 +185,42 @@
 
     <!-- BANK OTP -->
     <sc-if value="{{ isBankOtp }}" hint-placeholder-val="{{ false }}">
-      <div class="scr" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; background:oklch(0.97 0.005 75);">
-        <div style="background:#fff; border-bottom:1px solid oklch(0.92 0.01 250); padding:18px 22px;">
-          <div style="display:flex; align-items:center; justify-content:space-between;">
-            <div>
-              <div style="font:600 9.5px ui-monospace,monospace; letter-spacing:.16em; text-transform:uppercase; color:oklch(0.6 0.01 250);">Secured by 3-D Secure</div>
-              <div style="font:700 15px -apple-system,sans-serif; color:oklch(0.2 0.01 250); margin-top:5px;">{{ bankName }}</div>
+      <div class="scr" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; background:#F6F9FC;">
+        <div style="flex:1; display:flex; flex-direction:column; justify-content:center; padding:28px 18px;">
+          <div style="background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(50,50,93,0.11), 0 1px 1px rgba(0,0,0,0.04); padding:32px 24px 26px;">
+            <div style="display:flex; justify-content:center;">
+              <div style="width:44px; height:44px; border-radius:50%; background:#EDEDFC; display:flex; align-items:center; justify-content:center;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#635BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+              </div>
             </div>
-            <div style="{{ networkTileStyle }}">{{ networkMark }}</div>
+            <div style="font:700 19px/1.3 -apple-system,sans-serif; color:#0A2540; text-align:center; letter-spacing:-0.3px; margin-top:16px;">Verify your payment</div>
+            <div style="font:400 13.5px/1.6 -apple-system,sans-serif; color:#425466; margin-top:8px; text-align:center; text-wrap:pretty;">{{ bankName }} sent a 6-digit code to your registered mobile ending {{ maskedMobile }} to authorise <span style="color:#0A2540; font-weight:600;">{{ verifyAmount }}</span> on card •••• {{ cardLast4 }}.</div>
+
+            <div style="display:flex; gap:8px; margin-top:24px; justify-content:center;">
+              <sc-for list="{{ bankOtpBoxes }}" as="b" hint-placeholder-count="6">
+                <input type="tel" inputmode="numeric" autocomplete="one-time-code" maxlength="1" ref="{{ b.ref }}" value="{{ b.char }}" onChange="{{ b.onChange }}" onKeyDown="{{ b.onKeyDown }}" onPaste="{{ b.onPaste }}" onFocus="{{ b.onFocus }}" style="{{ b.style }}"/>
+              </sc-for>
+            </div>
+
+            <sc-if value="{{ bankOtpError }}" hint-placeholder-val="{{ false }}">
+              <div style="font:500 12.5px/1.4 -apple-system,sans-serif; color:#DF1B41; margin-top:10px; text-align:center;">{{ bankOtpError }}</div>
+            </sc-if>
+
+            <div style="display:flex; align-items:center; justify-content:center; gap:5px; margin-top:16px;">
+              <span style="font:400 12.5px -apple-system,sans-serif; color:#697386;">Didn't get it?</span>
+              <button type="button" style="min-height:32px; border:none; background:none; font:600 12.5px -apple-system,sans-serif; color:#635BFF; cursor:pointer;">Resend code</button>
+            </div>
+
+            <button type="button" onClick="{{ verifyBankOtp }}" style="width:100%; min-height:44px; margin-top:22px; border:none; border-radius:6px; background:#635BFF; color:#fff; font:600 14.5px -apple-system,sans-serif; cursor:pointer; box-shadow:0 2px 5px rgba(99,91,255,0.35);">Verify</button>
+            <button type="button" onClick="{{ goAddCard }}" style="width:100%; min-height:40px; margin-top:2px; border:none; background:none; font:500 13px -apple-system,sans-serif; color:#697386; cursor:pointer;">Cancel</button>
           </div>
-        </div>
 
-        <div style="padding:26px 22px 0;">
-          <div style="font:700 21px/1.3 -apple-system,sans-serif; color:oklch(0.2 0.01 250); letter-spacing:-0.3px;">Enter your bank OTP</div>
-          <div style="font:400 13px/1.6 -apple-system,sans-serif; color:oklch(0.5 0.01 250); margin-top:8px; text-wrap:pretty;">{{ bankName }} sent a 6-digit code to your registered mobile ending {{ maskedMobile }} to authorise {{ verifyAmount }} on card •••• {{ cardLast4 }}.</div>
-
-          <div style="display:flex; gap:8px; margin-top:24px;">
-            <sc-for list="{{ bankOtpBoxes }}" as="b" hint-placeholder-count="6">
-              <input type="tel" inputmode="numeric" autocomplete="one-time-code" maxlength="1" ref="{{ b.ref }}" value="{{ b.char }}" onChange="{{ b.onChange }}" onKeyDown="{{ b.onKeyDown }}" onPaste="{{ b.onPaste }}" onFocus="{{ b.onFocus }}" style="{{ b.style }}"/>
-            </sc-for>
+          <div style="display:flex; align-items:center; justify-content:center; gap:6px; margin-top:22px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8792A2" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+            <span style="font:500 11.5px -apple-system,sans-serif; color:#8792A2;">Powered by</span>
+            <span style="font:800 13px -apple-system,sans-serif; color:#425466; letter-spacing:-0.02em;">stripe</span>
           </div>
-
-          <sc-if value="{{ bankOtpError }}" hint-placeholder-val="{{ false }}">
-            <div style="font:500 12.5px/1.4 -apple-system,sans-serif; color:oklch(0.55 0.19 25); margin-top:10px;">{{ bankOtpError }}</div>
-          </sc-if>
-
-          <div style="display:flex; align-items:center; justify-content:space-between; margin-top:16px;">
-            <span style="font:400 12.5px -apple-system,sans-serif; color:oklch(0.55 0.01 250);">Didn't get it?</span>
-            <button type="button" style="min-height:40px; border:none; background:none; font:600 12.5px -apple-system,sans-serif; color:oklch(0.5 0.1 50); cursor:pointer;">Resend code</button>
-          </div>
-        </div>
-
-        <div style="margin-top:auto; padding:22px;">
-          <button type="button" onClick="{{ verifyBankOtp }}" style="width:100%; min-height:54px; border:none; border-radius:999px; background:linear-gradient(90deg, oklch(0.55 0.09 50), oklch(0.78 0.07 55)); color:#fff; font:700 15px -apple-system,sans-serif; cursor:pointer; box-shadow:0 8px 20px oklch(0.55 0.09 50 / 0.28);">Authorise</button>
-          <button type="button" onClick="{{ goAddCard }}" style="width:100%; min-height:48px; margin-top:6px; border:none; background:none; font:600 13px -apple-system,sans-serif; color:oklch(0.5 0.01 250); cursor:pointer;">Cancel</button>
-          <div style="font:400 11px/1.5 -apple-system,sans-serif; color:oklch(0.6 0.01 250); text-align:center; margin-top:10px;">Never share this code. {{ bankName }} staff will not ask for it.</div>
+          <div style="text-align:center; margin-top:6px; padding:0 20px; font:400 10.5px/1.5 -apple-system,sans-serif; color:#8792A2;">Never share this code. {{ bankName }} staff will not ask for it.</div>
         </div>
       </div>
     </sc-if>
@@ -911,7 +916,7 @@ const SCREEN_META = {
 
 class Component extends DCLogic {
   state = {
-    screen: 'login', loginTab: 'phone', ident: '', otp: '', otpSent: false, authError: '',
+    screen: 'login', loginTab: 'phone', ident: '', otp: '', otpSent: false, authError: '', otpResent: false,
     cardNum: '', cardExp: '', cardCvv: '', cardName: '', cardError: '', consent: false,
     bankOtp: '', bankOtpError: '',
     dial: '+60',
@@ -923,7 +928,7 @@ class Component extends DCLogic {
     walletShift: 1
   };
 
-  componentWillUnmount() { clearTimeout(this.t1); clearTimeout(this.t2); }
+  componentWillUnmount() { clearTimeout(this.t1); clearTimeout(this.t2); clearTimeout(this.t3); }
 
   go = (screen) => () => this.setState(s => {
     const next = { screen, zoomed: false };
@@ -949,6 +954,12 @@ class Component extends DCLogic {
     }
     this.setState({ otpSent: true, authError: '' });
   };
+  resendOtp = () => {
+    clearTimeout(this.t3);
+    this.setState({ otp: '', authError: '', otpResent: true });
+    this.otpFocus('login', 0);
+    this.t3 = setTimeout(() => this.setState({ otpResent: false }), 2400);
+  };
   verifyOtp = () => {
     if (this.state.otp.replace(/\D/g, '').length < 6) return this.setState({ authError: 'Enter all six digits.' });
     this.setState({ screen: 'addCard', authError: '' });
@@ -973,7 +984,12 @@ class Component extends DCLogic {
     this.setState({ cardError: '', screen: 'bankOtp', bankOtp: '', bankOtpError: '' });
   };
 
-  otpRefs = Array.from({ length: 6 }, () => React.createRef());
+  otpRefs = {
+    login: Array.from({ length: 6 }, () => React.createRef()),
+    bank: Array.from({ length: 6 }, () => React.createRef())
+  };
+  otpField = kind => (kind === 'bank' ? 'bankOtp' : 'otp');
+  otpErrField = kind => (kind === 'bank' ? 'bankOtpError' : 'authError');
 
   // --- input formatters (mask as you type)
   fmtPhone(v) {
@@ -1010,41 +1026,63 @@ class Component extends DCLogic {
   }
   cvvLen() { return /^3[47]/.test(this.state.cardNum.replace(/\D/g, '')) ? 4 : 3; }
 
-  otpFocus(i) {
-    const el = this.otpRefs[Math.max(0, Math.min(5, i))].current;
+  otpFocus(kind, i) {
+    const el = this.otpRefs[kind][Math.max(0, Math.min(5, i))].current;
     if (el) { el.focus(); el.select(); }
   }
 
-  setOtpDigit(i, raw) {
+  setOtpDigit(kind, i, raw) {
+    const field = this.otpField(kind), errField = this.otpErrField(kind);
     const typed = String(raw).replace(/\D/g, '');
     if (!typed) {
-      const arr = this.state.bankOtp.replace(/\D/g, '').padEnd(6, ' ').split('');
+      const arr = this.state[field].replace(/\D/g, '').padEnd(6, ' ').split('');
       arr[i] = ' ';
-      return this.setState({ bankOtp: arr.join('').trimEnd(), bankOtpError: '' });
+      return this.setState({ [field]: arr.join('').trimEnd(), [errField]: '' });
     }
-    const arr = this.state.bankOtp.replace(/\D/g, '').padEnd(6, ' ').split('');
+    const arr = this.state[field].replace(/\D/g, '').padEnd(6, ' ').split('');
     typed.split('').forEach((d, k) => { if (i + k < 6) arr[i + k] = d; });
-    this.setState({ bankOtp: arr.join('').replace(/\s+$/, ''), bankOtpError: '' });
-    this.otpFocus(Math.min(5, i + typed.length));
+    const next = arr.join('').replace(/\s+$/, '');
+    this.setState({ [field]: next, [errField]: '' }, () => {
+      if (kind === 'login' && next.length === 6) this.verifyOtp();
+    });
+    this.otpFocus(kind, Math.min(5, i + typed.length));
   }
 
-  otpKeyDown = (i, e) => {
-    const arr = this.state.bankOtp.replace(/\D/g, '').padEnd(6, ' ').split('');
+  otpKeyDown = (kind, i, e) => {
+    const field = this.otpField(kind), errField = this.otpErrField(kind);
+    const arr = this.state[field].replace(/\D/g, '').padEnd(6, ' ').split('');
     if (e.key === 'Backspace') {
       e.preventDefault();
-      if (arr[i] !== ' ') { arr[i] = ' '; this.setState({ bankOtp: arr.join('').replace(/\s+$/, ''), bankOtpError: '' }); }
-      else if (i > 0) { arr[i - 1] = ' '; this.setState({ bankOtp: arr.join('').replace(/\s+$/, ''), bankOtpError: '' }); this.otpFocus(i - 1); }
-    } else if (e.key === 'ArrowLeft') { e.preventDefault(); this.otpFocus(i - 1); }
-    else if (e.key === 'ArrowRight') { e.preventDefault(); this.otpFocus(i + 1); }
-    else if (e.key === 'Enter') { this.verifyBankOtp(); }
+      if (arr[i] !== ' ') { arr[i] = ' '; this.setState({ [field]: arr.join('').replace(/\s+$/, ''), [errField]: '' }); }
+      else if (i > 0) { arr[i - 1] = ' '; this.setState({ [field]: arr.join('').replace(/\s+$/, ''), [errField]: '' }); this.otpFocus(kind, i - 1); }
+    } else if (e.key === 'ArrowLeft') { e.preventDefault(); this.otpFocus(kind, i - 1); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); this.otpFocus(kind, i + 1); }
+    else if (e.key === 'Enter') { kind === 'bank' ? this.verifyBankOtp() : this.verifyOtp(); }
   };
 
-  otpPaste = (i, e) => {
+  otpPaste = (kind, i, e) => {
     const txt = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
     if (!txt) return;
     e.preventDefault();
-    this.setOtpDigit(i, txt.slice(0, 6 - i));
+    this.setOtpDigit(kind, i, txt.slice(0, 6 - i));
   };
+
+  otpBoxes(kind, styleFn) {
+    const code = this.state[this.otpField(kind)].replace(/\D/g, '');
+    return Array.from({ length: 6 }, (_, i) => {
+      const ch = code[i] || '';
+      return {
+        char: ch,
+        ref: this.otpRefs[kind][i],
+        onChange: e => this.setOtpDigit(kind, i, e.target.value),
+        onKeyDown: e => this.otpKeyDown(kind, i, e),
+        onPaste: e => this.otpPaste(kind, i, e),
+        onFocus: e => e.target.select(),
+        key: kind + 'otp' + i,
+        style: styleFn(ch)
+      };
+    });
+  }
 
   verifyBankOtp = () => {
     if (this.state.bankOtp.replace(/\D/g, '').length < 6) return this.setState({ bankOtpError: 'Enter the 6-digit code from your bank.' });
@@ -1062,7 +1100,7 @@ class Component extends DCLogic {
   };
 
   resetAll = () => this.setState({
-    screen: 'login', loginTab: 'phone', ident: '', otp: '', otpSent: false, authError: '',
+    screen: 'login', loginTab: 'phone', ident: '', otp: '', otpSent: false, authError: '', otpResent: false,
     cardNum: '', cardExp: '', cardCvv: '', cardName: '', cardError: '', consent: false,
     query: '', airportCode: null, loungeId: null, dateIdx: 0, slot: '12:00', guests: 0,
     loungeLeft: 4, meetLeft: 2, bookings: [], activeBooking: null, paying: false, zoomed: false, supportOpen: false,
@@ -1115,9 +1153,6 @@ class Component extends DCLogic {
     const meta = SCREEN_META[s.screen] || ['', ''];
 
     const grad = 'linear-gradient(90deg, oklch(0.55 0.09 50), oklch(0.78 0.07 55))';
-    const tabBase = 'flex:1; min-height:42px; border:none; border-radius:9px; font:600 13.5px -apple-system,sans-serif; cursor:pointer; ';
-    const tabOn = tabBase + 'background:#fff; color:oklch(0.2 0.01 250); box-shadow:0 1px 3px oklch(0 0 0 / 0.1);';
-    const tabOff = tabBase + 'background:none; color:oklch(0.55 0.01 250);';
 
     const q = s.query.trim().toLowerCase();
     const filtered = AIRPORTS.filter(a => !q || a.city.toLowerCase().includes(q) || a.code.toLowerCase().includes(q) || a.name.toLowerCase().includes(q));
@@ -1181,8 +1216,6 @@ class Component extends DCLogic {
       showTabs: ['home', 'bookings', 'profile'].indexOf(s.screen) >= 0,
       screenTitle: meta[0], screenNote: meta[1],
 
-      styles: { tabPhone: s.loginTab === 'phone' ? tabOn : tabOff, tabEmail: s.loginTab === 'email' ? tabOn : tabOff },
-
       // login
       isPhone: s.loginTab === 'phone',
       identLabel: s.loginTab === 'phone' ? 'Mobile number' : 'Email address',
@@ -1196,16 +1229,20 @@ class Component extends DCLogic {
       dialFlag: (DIALS.find(d => d.code === s.dial) || DIALS[0]).flag,
       dialOptions: DIALS.map(d => ({ code: d.code, label: d.flag + '  ' + d.country + '  ' + d.code })),
       onDial: e => this.setState({ dial: e.target.value }),
-      ident: s.ident, otp: s.otp, otpSent: s.otpSent, otpNotSent: !s.otpSent, authError: s.authError,
-      tabPhone: () => this.setState({ loginTab: 'phone', authError: '' }),
-      tabEmail: () => this.setState({ loginTab: 'email', authError: '' }),
+      ident: s.ident, otpSent: s.otpSent, otpNotSent: !s.otpSent, authError: s.authError,
+      altAuthLabel: s.loginTab === 'phone' ? 'Log in with email instead' : 'Log in with phone instead',
+      toggleAuthMode: () => this.setState({ loginTab: s.loginTab === 'phone' ? 'email' : 'phone', authError: '' }),
       onIdent: e => this.setState({
         ident: s.loginTab === 'phone' ? this.fmtPhone(e.target.value) : e.target.value.replace(/\s/g, '').slice(0, 60),
         authError: ''
       }),
-      onOtp: e => this.setState({ otp: e.target.value.replace(/\D/g, '').slice(0, 6), authError: '' }),
       sendOtp: this.sendOtp, verifyOtp: this.verifyOtp,
       editIdent: () => this.setState({ otpSent: false, otp: '', authError: '' }),
+      loginOtpBoxes: this.otpBoxes('login', ch =>
+        'flex:1; min-width:0; max-width:46px; height:56px; border-radius:12px; text-align:center; font:700 22px -apple-system,sans-serif; color:oklch(0.2 0.01 250); background:#fff; outline:none; caret-color:oklch(0.55 0.09 50); border:1.5px solid ' + (ch ? 'oklch(0.55 0.09 50)' : 'oklch(0.9 0.01 250)') + ';' + (ch ? ' box-shadow:0 0 0 3px oklch(0.55 0.09 50 / 0.14);' : '')
+      ),
+      resendOtp: this.resendOtp,
+      resendLabel: s.otpResent ? 'Sent ✓' : 'Resend code',
 
       // card
       issuer, verifyAmount, tokenAmount, cardLast4: last4, holderName, firstName,
@@ -1239,21 +1276,9 @@ class Component extends DCLogic {
       maskedMobile: (s.ident.replace(/\D/g, '').slice(-4) || '4187'),
       bankOtp: s.bankOtp, bankOtpError: s.bankOtpError,
       verifyBankOtp: this.verifyBankOtp,
-      bankOtpBoxes: Array.from({ length: 6 }, (_, i) => {
-        const code = s.bankOtp.replace(/\D/g, '');
-        const ch = code[i] || '';
-        return {
-          char: ch,
-          ref: this.otpRefs[i],
-          onChange: e => this.setOtpDigit(i, e.target.value),
-          onKeyDown: e => this.otpKeyDown(i, e),
-          key: 'otp' + i,
-          onPaste: e => this.otpPaste(i, e),
-          onFocus: e => e.target.select(),
-          style: 'flex:1; min-width:0; width:100%; height:56px; border-radius:12px; text-align:center; font:700 22px -apple-system,sans-serif; color:oklch(0.2 0.01 250); background:#fff; outline:none; caret-color:oklch(0.55 0.09 50); border:1.5px solid ' + (ch ? 'oklch(0.55 0.09 50)' : 'oklch(0.9 0.01 250)') + ';'
-        };
-      }),
-      networkTileStyle: 'min-width:44px; height:30px; padding:0 9px; border-radius:5px; background:oklch(0.97 0.005 75); border:1px solid oklch(0.92 0.01 250); display:flex; align-items:center; justify-content:center; font:800 10.5px -apple-system,sans-serif; letter-spacing:.04em; color:oklch(0.35 0.01 250);',
+      bankOtpBoxes: this.otpBoxes('bank', ch =>
+        'flex:1; min-width:0; max-width:44px; height:52px; border-radius:6px; text-align:center; font:700 20px -apple-system,sans-serif; color:#0A2540; background:#fff; outline:none; caret-color:#635BFF; border:1.5px solid ' + (ch ? '#635BFF' : '#E0E6EB') + ';' + (ch ? ' box-shadow:0 0 0 3px rgba(99,91,255,0.13);' : '')
+      ),
       backToLogin: this.go('login'), goHome: this.go('home'), goAddCard: this.go('addCard'),
       consentDate: '24 Aug 2026',
       removeCard: () => this.setState({ screen: 'addCard', consent: false, cardNum: '', cardExp: '', cardCvv: '', cardError: '' }),
