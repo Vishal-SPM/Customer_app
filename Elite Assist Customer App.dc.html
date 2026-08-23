@@ -837,8 +837,7 @@ const wikiImg = (file, w) => 'https://commons.wikimedia.org/wiki/Special:FilePat
 
 const SERVICE_IMAGES = {
   lounge: '190209 TSR BusinessLounge.jpg',
-  meet: 'Austrian Lounge Reception.jpg',
-  transfer: 'Mercedes-Benz V-class VIP.JPG'
+  meet: 'Austrian Lounge Reception.jpg'
 };
 
 const AIRPORT_IMAGES = {
@@ -1304,8 +1303,7 @@ class Component extends DCLogic {
       })),
       services: [
         { key: 'lounge', name: 'Airport Lounge', sub: 'Included visits across 8 airports', slot: 'svc-lounge', img: wikiImg(SERVICE_IMAGES.lounge, 600), hint: 'Drop a lounge interior photo', left: s.loungeLeft, total: 4 },
-        { key: 'meet', name: 'Meet & Assist', sub: 'Greeter, fast-track and porter', slot: 'svc-meet', img: wikiImg(SERVICE_IMAGES.meet, 600), hint: 'Drop a meet & assist photo', left: s.meetLeft, total: 2 },
-        { key: 'transfer', name: 'Airport Transfer', sub: 'Private car, kerbside to door', slot: 'svc-transfer', img: wikiImg(SERVICE_IMAGES.transfer, 600), hint: 'Drop a chauffeur photo', payAndUse: true, from: cur + ' 89' }
+        { key: 'meet', name: 'Meet & Assist', sub: 'Greeter, fast-track and porter', slot: 'svc-meet', img: wikiImg(SERVICE_IMAGES.meet, 600), hint: 'Drop a meet & assist photo', left: s.meetLeft, total: 2 }
       ].map(sv => ({
         name: sv.name, sub: sv.sub, slotId: sv.slot, slotHint: sv.hint, img: sv.img,
         go: () => this.setState({ screen: 'airports', service: sv.key, query: '' }),
@@ -1323,7 +1321,7 @@ class Component extends DCLogic {
       openLatestPass: this.go('pass'),
 
       // airports
-      serviceTitle: s.service === 'meet' ? 'Meet & Assist' : (s.service === 'transfer' ? 'Airport Transfer' : 'Choose an airport'),
+      serviceTitle: s.service === 'meet' ? 'Meet & Assist' : 'Choose an airport',
       query: s.query, onQuery: e => this.setState({ query: e.target.value }),
       noResults: filtered.length === 0,
       airportList: filtered.map(a => ({
@@ -1337,7 +1335,7 @@ class Component extends DCLogic {
 
       // lounges
       airportCode: ap ? ap.code : '', airportCity: ap ? ap.city + ' · ' + ap.name : '',
-      loungeCountLabel: ap ? (ap.lounges.length + (ap.lounges.length === 1 ? ' lounge' : ' lounges available') + (s.service === 'transfer' ? ' · pay and use' : ' · uses 1 of your ' + s.loungeLeft + ' remaining visits')) : '',
+      loungeCountLabel: ap ? (ap.lounges.length + (ap.lounges.length === 1 ? ' lounge' : ' lounges available') + ' · uses 1 of your ' + s.loungeLeft + ' remaining visits') : '',
       loungeList: (ap ? ap.lounges : []).map(l => ({
         name: l.name, location: l.location, status: l.status, code: ap ? ap.code + ' · ' + l.hours : '', slotId: 'lg-' + l.id,
         img: wikiImg(LOUNGE_IMAGES[l.id], 600),
